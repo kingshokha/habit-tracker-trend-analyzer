@@ -1,0 +1,2331 @@
+<!DOCTYPE html>
+<html lang="ru" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HabitTracker Trend Analyzer — Анализатор тренда привычки</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f5f3ff',
+                            100: '#ede9fe',
+                            200: '#ddd6fe',
+                            300: '#c4b5fd',
+                            400: '#a78bfa',
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                            700: '#6d28d9',
+                            800: '#5b21b6',
+                            900: '#4c1d95',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- JSZip Library for ZIP archive extraction -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="h-full text-slate-800 transition-colors duration-200">
+
+    <div class="min-h-screen flex flex-col">
+        <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
+            <div class="max-w-4xl mx-auto px-4 sm:px-6">
+                <div class="flex items-center justify-between h-14">
+                    <div class="flex items-center space-x-3">
+                        <div class="bg-primary-600 text-white p-2 rounded-xl shadow-md shadow-primary-500/20">
+                            <i data-lucide="trending-up" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <span class="text-lg font-extrabold tracking-tight bg-gradient-to-r from-primary-600 to-indigo-500 bg-clip-text text-transparent">HabitTracker</span>
+                            <span class="text-[10px] block font-medium text-slate-400">Анализ тренда одной привычки</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-2">
+                        <button id="header-import-btn" onclick="openImportModal()" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 hover:bg-primary-100 text-primary-700 text-xs font-semibold rounded-lg transition" title="Загрузить другой файл">
+                            <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+                            <span>Импортировать файл</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-grow max-w-4xl w-full mx-auto px-4 sm:px-6 pt-3 pb-8">
+            
+            <div id="dashboard-container" class="space-y-4 hidden">
+                
+                <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                    <div class="p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2 whitespace-nowrap">
+                                <i data-lucide="list-checks" class="text-primary-500 w-5 h-5 shrink-0"></i> Аналитика показателей
+                            </h3>
+                        </div>
+                        
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                            <div id="date-range-container" class="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-600 font-semibold">
+                                <span class="font-medium text-[10px] text-slate-400 uppercase tracking-wider mr-1 select-none">Период:</span>
+                                <input type="date" id="startDateInput" onchange="filterHistoryTable()" class="bg-transparent border-none outline-none focus:ring-0 text-slate-800 font-medium p-0 w-24" />
+                                <span class="text-slate-300 px-1 select-none">—</span>
+                                <input type="date" id="endDateInput" onchange="filterHistoryTable()" class="bg-transparent border-none outline-none focus:ring-0 text-slate-800 font-medium p-0 w-24" />
+                                <button onclick="clearDateRange()" class="ml-1 text-slate-400 hover:text-rose-500 transition" title="Сбросить даты">
+                                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+
+                            <div id="year-selector-container" class="relative">
+                                <select id="yearSelector" onchange="selectYearRange(this.value)" class="w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs font-semibold focus:ring-1 focus:ring-primary-500 outline-none text-slate-800 cursor-pointer appearance-none pr-8">
+                                    <option value="all">Год: Все</option>
+                                </select>
+                                <div class="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none text-slate-400">
+                                    <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-b border-slate-100 bg-slate-50/50 px-6 flex space-x-6 overflow-x-auto">
+                        <button id="tab-overview-btn" onclick="switchTab('overview')" class="py-3 text-xs font-bold border-b-2 border-primary-600 text-primary-600 flex items-center gap-2 transition focus:outline-none whitespace-nowrap">
+                            <i data-lucide="eye" class="w-4 h-4"></i> Обзор
+                        </button>
+                        <button id="tab-month-comp-btn" onclick="switchTab('month-comp')" class="py-3 text-xs font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2 transition focus:outline-none whitespace-nowrap">
+                            <i data-lucide="calendar-range" class="w-4 h-4"></i> Сравнение месяцев
+                        </button>
+                        <button id="tab-chronology-btn" onclick="switchTab('chronology')" class="py-3 text-xs font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2 transition focus:outline-none whitespace-nowrap">
+                            <i data-lucide="calendar" class="w-4 h-4"></i> Хронология дня
+                        </button>
+                        <button id="tab-streaks-btn" onclick="switchTab('streaks')" class="py-3 text-xs font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2 transition focus:outline-none whitespace-nowrap">
+                            <i data-lucide="flame" class="w-4 h-4"></i> Рекорды
+                        </button>
+                        <button id="tab-charts-btn" onclick="switchTab('charts')" class="py-3 text-xs font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2 transition focus:outline-none whitespace-nowrap">
+                            <i data-lucide="line-chart" class="w-4 h-4"></i> Статистика
+                        </button>
+                    </div>
+
+                    <div id="grouping-selector-container" class="px-6 py-3 border-b border-slate-100 bg-slate-50/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hidden">
+                        <div class="flex flex-wrap gap-2 items-center">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1 select-none">Группировка:</span>
+                            <div class="inline-flex rounded-xl p-0.5 bg-slate-100 border border-slate-200">
+                                <button onclick="setGroupingMode('day')" id="group-day-btn" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-white shadow-sm text-primary-600 transition-all">По дням</button>
+                                <button onclick="setGroupingMode('week')" id="group-week-btn" class="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:text-slate-700 transition-all">По неделям</button>
+                                <button onclick="setGroupingMode('month')" id="group-month-btn" class="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:text-slate-700 transition-all">По месяцам</button>
+                                <button onclick="setGroupingMode('quarter')" id="group-quarter-btn" class="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:text-slate-700 transition-all">По кварталам</button>
+                                <button onclick="setGroupingMode('year')" id="group-year-btn" class="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:text-slate-700 transition-all">По годам</button>
+                            </div>
+                        </div>
+
+                        <div id="sort-selector-container" class="relative">
+                            <select id="sortSelector" onchange="onSortChange(this.value)" class="w-full sm:w-auto bg-white border border-slate-200 rounded-xl py-1.5 px-3 text-xs font-semibold focus:ring-1 focus:ring-primary-500 outline-none text-slate-800 cursor-pointer appearance-none pr-8 shadow-sm">
+                                <option value="date-desc">Сначала новые</option>
+                                <option value="date-asc">Сначала старые</option>
+                                <option value="val-desc">Проценты: по убыванию</option>
+                                <option value="val-asc">Проценты: по возрастанию</option>
+                            </select>
+                            <div class="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none text-slate-400">
+                                <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="overview-view-content" class="block p-6 space-y-6">
+                        <div class="bg-slate-50 border border-slate-100 rounded-2xl p-5 shadow-sm space-y-3 transition-all">
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center gap-2.5">
+                                    <span class="p-1.5 bg-primary-100 text-primary-600 rounded-lg">
+                                        <i data-lucide="target" class="w-4.5 h-4.5"></i>
+                                    </span>
+                                    <div>
+                                        <h4 class="text-sm font-bold text-slate-900">Средний успех за всё время</h4>
+                                    </div>
+                                </div>
+                                <div class="text-right flex flex-col items-end">
+                                    <span id="overview-overall-percent" class="text-lg font-extrabold text-primary-600 font-mono">0.00%</span>
+                                    <span id="overview-last30-change" class="text-[11px] font-bold mt-0.5"></span>
+                                </div>
+                            </div>
+                            
+                            <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+                                <div id="overview-overall-bar" class="bg-primary-600 h-3 transition-all duration-500 rounded-full" style="width: 0%"></div>
+                            </div>
+
+                            <div class="flex justify-between items-center text-[10px] text-slate-400">
+                                <span id="overview-overall-count" class="font-bold">0 успехов из 0 дней</span>
+                                <span class="font-mono text-[9px]">(Успехи * 100 : дни)</span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            
+                            <div class="bg-slate-50 border border-slate-100 rounded-2xl p-5 space-y-4">
+                                <div>
+                                    <div class="flex items-center justify-between mb-4">
+                                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider select-none">Накопительный прогресс (MTD)</span>
+                                        <span class="p-1.5 bg-primary-100 text-primary-600 rounded-lg">
+                                            <i data-lucide="calendar-range" class="w-4 h-4"></i>
+                                        </span>
+                                    </div>
+                                    <h4 class="text-sm font-bold text-slate-900 mb-1">Сравнение последних 6 месяцев</h4>
+                                    <p class="text-xs text-slate-500 leading-relaxed">Разница в количестве успехов каждого месяца до <span id="overview-target-day" class="font-bold text-primary-600">X-го</span> числа.</p>
+                                </div>
+                                <div id="overview-months-list" class="space-y-3">
+                                </div>
+                            </div>
+
+                            <div class="bg-slate-50 border border-slate-100 rounded-2xl p-5 space-y-4">
+                                <div>
+                                    <div class="flex items-center justify-between mb-4">
+                                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider select-none">Сравнение года к году (YTD)</span>
+                                        <span class="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg">
+                                            <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                                        </span>
+                                    </div>
+                                    <h4 class="text-sm font-bold text-slate-900 mb-1">С 1 января до <span id="overview-target-date" class="font-bold text-emerald-600">ДД.ММ</span></h4>
+                                    <p class="text-xs text-slate-500 leading-relaxed">Сравнение текущего прогресса с аналогичным периодом прошлых лет.</p>
+                                </div>
+                                <div id="overview-years-list" class="space-y-3">
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <div id="month-comp-view-content" class="hidden p-6 space-y-6">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-150">
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                                    <i data-lucide="arrow-up-down" class="w-4 h-4 text-primary-500"></i> Сравнение всех месяцев в истории
+                                </h4>
+                                <p class="text-[10px] text-slate-500 mt-0.5">Полный список всех месяцев с возможностью ранжирования от лучших к худшим результатам</p>
+                            </div>
+                            
+                            <div class="flex flex-wrap items-center gap-2">
+                                <div class="inline-flex rounded-xl p-0.5 bg-slate-200 border border-slate-300 text-xs font-semibold">
+                                    <button onclick="setMonthCompFilterMode('full')" id="mcomp-filter-full-btn" class="px-2.5 py-1 rounded-lg bg-white shadow-sm text-primary-700 transition">За весь месяц</button>
+                                    <button onclick="setMonthCompFilterMode('mtd')" id="mcomp-filter-mtd-btn" class="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition">До <span id="mcomp-cutoff-day">X</span>-го числа (MTD)</button>
+                                </div>
+
+                                <div class="relative">
+                                    <select id="monthCompSortSelector" onchange="onMonthCompSortChange(this.value)" class="bg-white border border-slate-200 rounded-xl py-1.5 px-3 text-xs font-bold focus:ring-1 focus:ring-primary-500 outline-none text-slate-800 cursor-pointer appearance-none pr-8 shadow-sm">
+                                        <option value="best">Сначала лучшие (% успеха)</option>
+                                        <option value="worst">Сначала худшие (% успеха)</option>
+                                        <option value="date-desc">По дате (новые сначала)</option>
+                                        <option value="date-asc">По дате (старые сначала)</option>
+                                        <option value="count-desc">По количеству успехов</option>
+                                    </select>
+                                    <div class="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none text-slate-400">
+                                        <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Grid Summary of Top and Worst Month -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div id="best-month-card" class="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-4 flex items-center gap-3">
+                                <div class="p-3 bg-emerald-500 text-white rounded-xl font-bold shadow-md shadow-emerald-500/20">
+                                    <i data-lucide="trophy" class="w-6 h-6"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block">Самый успешный месяц</span>
+                                    <h5 id="best-month-title" class="text-sm font-extrabold text-slate-900">—</h5>
+                                    <p id="best-month-subtitle" class="text-[11px] text-emerald-800 font-semibold mt-0.5">—</p>
+                                </div>
+                            </div>
+
+                            <div id="worst-month-card" class="bg-rose-50/70 border border-rose-200/80 rounded-2xl p-4 flex items-center gap-3">
+                                <div class="p-3 bg-rose-500 text-white rounded-xl font-bold shadow-md shadow-rose-500/20">
+                                    <i data-lucide="trending-down" class="w-6 h-6"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <span class="text-[10px] font-bold uppercase tracking-wider text-rose-700 block">Самый низкий результат</span>
+                                    <h5 id="worst-month-title" class="text-sm font-extrabold text-slate-900">—</h5>
+                                    <p id="worst-month-subtitle" class="text-[11px] text-rose-800 font-semibold mt-0.5">—</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="all-months-list-container" class="space-y-3">
+                            <!-- All months will be dynamically rendered here -->
+                        </div>
+                    </div>
+                    
+                    <div id="chronology-view-content" class="hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse font-sans">
+                                <thead id="habits-table-head">
+                                    <tr class="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                                        <th class="py-3 px-6">Дата</th>
+                                        <th class="py-3 px-6 text-center">Процент успеха</th>
+                                        <th class="py-3 px-6 text-center">Динамика</th>
+                                        <th class="py-3 px-6 text-right">Результат дня</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="habits-table-body" class="divide-y divide-slate-100 text-xs">
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div id="chronology-show-more-container" class="p-4 flex justify-center border-t border-slate-100 hidden">
+                            <button onclick="showAllChronologyDays()" class="px-5 py-2.5 bg-primary-50 hover:bg-primary-100 text-primary-700 text-xs font-semibold rounded-xl transition flex items-center gap-1.5 shadow-sm">
+                                <i data-lucide="chevrons-down" class="w-4 h-4"></i>
+                                <span>Показать все</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="streaks-view-content" class="hidden p-6 space-y-6">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-150">
+                            <div class="flex items-center gap-2.5">
+                                <div class="p-1.5 bg-primary-100 text-primary-600 rounded-lg">
+                                    <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-xs font-bold text-slate-900">Параметры отображения</h4>
+                                    <p class="text-[10px] text-slate-500 font-medium">Настройте глубину вывода экстремальных серий трекера</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center gap-2 self-stretch sm:self-auto justify-end font-semibold">
+                                <label for="recordsLimitInput" class="text-xs font-semibold text-slate-700">Отображать топ-рекордов:</label>
+                                <input type="number" id="recordsLimitInput" value="10" min="1" max="100" onchange="renderDashboard()" onkeyup="renderDashboard()" class="w-16 px-2.5 py-1 text-xs text-center border border-slate-200 bg-white rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500 font-bold" />
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-emerald-50/50 rounded-xl p-5 border border-emerald-100/50">
+                                <div class="flex items-center gap-2.5 mb-4">
+                                    <div class="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
+                                        <i data-lucide="flame" class="w-5 h-5 fill-current"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-slate-900 text-sm">Топ серий успехов</h4>
+                                        <p class="text-[10px] text-slate-400 leading-relaxed">Последовательный рост показателей (новые рекорды при равенстве выводятся первыми)</p>
+                                    </div>
+                                </div>
+                                <div id="success-streaks-list" class="space-y-3">
+                                </div>
+                            </div>
+
+                            <div class="bg-rose-50/50 rounded-xl p-5 border border-rose-100/50">
+                                <div class="flex items-center gap-2.5 mb-4">
+                                    <div class="p-2 bg-rose-100 text-rose-600 rounded-lg">
+                                        <i data-lucide="trending-down" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-slate-900 text-sm">Топ серий провалов</h4>
+                                        <p class="text-[10px] text-slate-400 leading-relaxed">Непрерывный спад дисциплины (новые спады при равенстве выводятся первыми)</p>
+                                    </div>
+                                </div>
+                                <div id="failure-streaks-list" class="space-y-3">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="charts-view-content" class="hidden p-6 space-y-6">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-150">
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                                    <i data-lucide="sliders" class="w-4 h-4 text-primary-500"></i> Интервал визуализации
+                                </h4>
+                                <p class="text-[10px] text-slate-500">Выберите тип группировки для построения кривой прогресса</p>
+                            </div>
+                            
+                            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+                                <div id="chart-from-start-container" class="hidden flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:bg-slate-50 transition">
+                                    <input type="checkbox" id="chartFromStartCheckbox" onchange="renderTrendsChart()" class="w-4 h-4 text-primary-600 rounded border-slate-300 focus:ring-primary-500 cursor-pointer" />
+                                    <label for="chartFromStartCheckbox" class="text-xs font-semibold text-slate-700 cursor-pointer select-none">
+                                        Учитывать с начала истории
+                                    </label>
+                                </div>
+
+                                <div class="inline-flex rounded-xl p-0.5 bg-slate-100 border border-slate-200">
+                                    <button onclick="setChartGroupingMode('day')" id="chart-group-day-btn" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-white shadow-sm text-primary-600 transition-all">Дни</button>
+                                    <button onclick="setChartGroupingMode('week')" id="chart-group-week-btn" class="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:text-slate-700 transition-all">Недели</button>
+                                    <button onclick="setChartGroupingMode('month')" id="chart-group-month-btn" class="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:text-slate-700 transition-all">Месяцы</button>
+                                    <button onclick="setChartGroupingMode('quarter')" id="chart-group-quarter-btn" class="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:text-slate-700 transition-all">Кварталы</button>
+                                    <button onclick="setChartGroupingMode('year')" id="chart-group-year-btn" class="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:text-slate-700 transition-all">Года</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-50 border border-slate-100 rounded-2xl p-5">
+                            <div class="h-[320px] w-full relative">
+                                <canvas id="trendsChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-150">
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Максимальный успех в шаге</span>
+                                <span id="chart-stat-max" class="text-base font-extrabold text-slate-900 font-mono mt-1 block">0.00%</span>
+                            </div>
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-150 flex flex-col justify-between min-h-[92px]">
+                                <div>
+                                    <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Общий процент успеха</span>
+                                    <span id="chart-stat-avg" class="text-base font-extrabold text-primary-600 font-mono mt-1 block">0.00%</span>
+                                </div>
+                                <div class="mt-2 pt-1 border-t border-slate-200 flex items-center gap-1 text-[9px] text-slate-400">
+                                    <i data-lucide="info" class="w-3 h-3 text-primary-500"></i>
+                                    <span>(Успехи * 100 : дни)</span>
+                                </div>
+                            </div>
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-150">
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Всего успешных закрытий</span>
+                                <span id="chart-stat-success-days" class="text-base font-extrabold text-emerald-600 font-mono mt-1 block">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-slate-100/50 border border-slate-200/50 rounded-xl text-xs text-slate-500">
+                    <span id="rendered-rows-count">Отображено записей: 0</span>
+                    <button onclick="openImportModal()" class="flex items-center gap-1 text-primary-600 font-semibold hover:underline">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Загрузить другие данные
+                    </button>
+                </div>
+
+            </div>
+
+            <div id="empty-state" class="text-center py-16 px-6 bg-white rounded-2xl border-2 border-dashed border-slate-300 hover:border-primary-500 shadow-sm max-w-xl mx-auto my-8 relative transition-all group cursor-pointer">
+                <input type="file" id="emptyStateFile" accept=".zip, .xlsx, .xls, .csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                <div class="pointer-events-none space-y-4">
+                    <div class="mx-auto w-14 h-14 bg-primary-100 rounded-full flex items-center justify-center text-primary-600 group-hover:scale-110 transition-transform">
+                        <i data-lucide="upload-cloud" class="w-7 h-7"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900 mb-1">Ожидание импорта файла</h3>
+                        <p class="text-slate-500 max-w-sm mx-auto text-xs leading-relaxed">
+                            <span class="font-semibold text-primary-600">Перетащите сюда ваш файл</span> или нажмите для выбора
+                        </p>
+                        <p class="text-[10px] text-slate-400 mt-1">Поддерживаются ZIP (с Scores.csv), CSV и Excel (.xlsx)</p>
+                    </div>
+                    <div class="inline-flex items-center gap-1.5 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium text-xs rounded-xl shadow-sm transition">
+                        <i data-lucide="upload-cloud" class="w-4 h-4"></i> Выбрать файл
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <div id="importModal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+            <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <div class="fixed inset-0 bg-slate-900/60 transition-opacity" aria-hidden="true" onclick="closeImportModal()"></div>
+                <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+                <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-slate-200">
+                    <div class="absolute top-4 right-4 z-10">
+                        <button onclick="closeImportModal()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+
+                    <div class="p-6">
+                        <div class="flex items-center gap-2 mb-4">
+                            <div class="p-2 bg-primary-100 rounded-lg text-primary-600">
+                                <i data-lucide="file-archive" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-slate-900">Импорт истории привычки</h3>
+                                <p class="text-xs text-slate-400">Локальный разбор ZIP (с Scores.csv), Excel и CSV файлов</p>
+                            </div>
+                        </div>
+
+                        <div id="dropzone" class="border-2 border-dashed border-slate-300 hover:border-primary-500 rounded-xl p-8 text-center cursor-pointer bg-slate-50 hover:bg-primary-50/30 transition group relative overflow-hidden">
+                            <input type="file" id="excelFile" accept=".zip, .xlsx, .xls, .csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                            <div class="space-y-2 pointer-events-none">
+                                <div class="mx-auto w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 group-hover:scale-105 transition-transform">
+                                    <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+                                </div>
+                                <div class="text-xs text-slate-600">
+                                    <span class="font-semibold text-primary-600">Перетащите ваш файл</span> или нажмите
+                                </div>
+                                <p class="text-[10px] text-slate-400">Поддерживаются ZIP-архивы (с Scores.csv), CSV и Excel (.xlsx)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3">
+            <i data-lucide="check-circle" class="w-5 h-5"></i>
+            <span id="toast-message" class="text-xs font-semibold">Файл успешно загружен!</span>
+        </div>
+
+        <footer class="bg-white border-t border-slate-200 py-6 mt-12 transition-colors">
+            <div class="max-w-4xl mx-auto px-4 text-center text-[11px] text-slate-400">
+                <p>© 2026 HabitTracker Trend Analyzer. Обработка данных происходит локально в вашем браузере.</p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        let habitsData = []; 
+        let currentSortMode = 'date-desc'; 
+        let activeTab = 'overview'; 
+        let currentGroupingMode = 'day'; 
+        let chartGroupingMode = 'day'; 
+        let trendChartInstance = null; 
+        let showAllChronology = false; 
+
+        // Переменные для вкладки "Сравнение месяцев"
+        let monthCompSortMode = 'best'; // 'best', 'worst', 'date-desc', 'date-asc', 'count-desc'
+        let monthCompFilterMode = 'full'; // 'full' (весь месяц) или 'mtd' (до X-го числа)
+
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-message');
+            if (!toast || !toastMsg) return;
+            toastMsg.textContent = message;
+            
+            if (isError) {
+                toast.classList.remove('bg-emerald-600');
+                toast.classList.add('bg-rose-600');
+            } else {
+                toast.classList.remove('bg-rose-600');
+                toast.classList.add('bg-emerald-600');
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 4000);
+        }
+
+        function formatDateToString(date) {
+            if (!date || !(date instanceof Date) || isNaN(date.getTime())) return '';
+            const d = String(date.getDate()).padStart(2, '0');
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const y = date.getFullYear();
+            return `${d}.${m}.${y}`;
+        }
+
+        function formatDateToYYYYMMDD(date) {
+            if (!date || !(date instanceof Date) || isNaN(date.getTime())) return '';
+            const d = String(date.getDate()).padStart(2, '0');
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const y = date.getFullYear();
+            return `${y}-${m}-${d}`;
+        }
+
+        function getNounDays(number) {
+            let n = Math.abs(number);
+            n %= 100;
+            if (n >= 5 && n <= 20) {
+                return 'дней';
+            }
+            n %= 10;
+            if (n === 1) {
+                return 'день';
+            }
+            if (n >= 2 && n <= 4) {
+                return 'дня';
+            }
+            return 'дней';
+        }
+
+        function getNounSuccesses(number) {
+            let n = Math.abs(number);
+            n %= 100;
+            if (n >= 5 && n <= 20) {
+                return 'успехов';
+            }
+            n %= 10;
+            if (n === 1) {
+                return 'успех';
+            }
+            if (n >= 2 && n <= 4) {
+                return 'успеха';
+            }
+            return 'успехов';
+        }
+
+        function getDaysAgoRussian(days) {
+            if (days === 0) return 'сегодня';
+            if (days === 1) return 'вчера';
+            let n = Math.abs(days);
+            n %= 100;
+            if (n >= 5 && n <= 20) {
+                return `${days} дней назад`;
+            }
+            n %= 10;
+            if (n === 1) {
+                return `${days} день назад`;
+            }
+            if (n >= 2 && n <= 4) {
+                return `${days} дня назад`;
+            }
+            return `${days} дней назад`;
+        }
+
+        function getDaysAgoText(endDate) {
+            const now = new Date();
+            const d1 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const d2 = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+            
+            const diffTime = d1 - d2;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays < 0) return 'в будущем';
+            return getDaysAgoRussian(diffDays);
+        }
+
+        async function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const fileName = file.name.toLowerCase();
+
+            // Проверка если загружен ZIP-архив
+            if (fileName.endsWith('.zip')) {
+                try {
+                    const zip = new JSZip();
+                    const zipContent = await zip.loadAsync(file);
+                    
+                    let targetFile = null;
+                    let targetFileName = "";
+
+                    // Поиск файла Scores.csv внутри архива
+                    zipContent.forEach((relativePath, zipEntry) => {
+                        if (!zipEntry.dir && relativePath.toLowerCase().endsWith('scores.csv')) {
+                            targetFile = zipEntry;
+                            targetFileName = relativePath;
+                        }
+                    });
+
+                    if (!targetFile) {
+                        showToast("Файл Scores.csv не найден внутри ZIP-архива!", true);
+                        return;
+                    }
+
+                    const arrayBuffer = await targetFile.async("arraybuffer");
+                    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                    
+                    processRaw2DArray(rows, `Скопировано из ZIP: ${targetFileName}`);
+                } catch (error) {
+                    console.error(error);
+                    showToast("Не удалось прочитать ZIP-архив! Убедитесь, что файл не поврежден.", true);
+                }
+                return;
+            }
+
+            // Прямая загрузка CSV / Excel файлов
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                    processRaw2DArray(rows);
+                } catch (error) {
+                    console.error(error);
+                    showToast("Не удалось прочесть файл! Убедитесь, что это корректная таблица Excel, CSV или ZIP-архив.", true);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processRaw2DArray(rows, customSourceInfo = "") {
+            if (!rows || rows.length === 0) {
+                showToast("Файл пустой!", true);
+                return;
+            }
+
+            const cleanRows = rows.filter(row => {
+                return row && row.length > 0 && row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== "");
+            });
+
+            if (cleanRows.length === 0) {
+                showToast("Не удалось найти данные в файле!", true);
+                return;
+            }
+
+            let maxCols = 0;
+            cleanRows.forEach(r => { if (r.length > maxCols) maxCols = r.length; });
+
+            const dateScores = Array(maxCols).fill(0);
+            const valueScores = Array(maxCols).fill(0);
+
+            cleanRows.forEach(row => {
+                row.forEach((cell, c) => {
+                    if (cell === null || cell === undefined || String(cell).trim() === "") return;
+                    const cellStr = String(cell).trim();
+
+                    if (parseStrictDate(cellStr) !== null) {
+                        dateScores[c]++;
+                    }
+
+                    const cleanValStr = cellStr.replace(',', '.').replace('%', '');
+                    const num = parseFloat(cleanValStr);
+                    if (!isNaN(num)) {
+                        if (num < 35000 || num > 65000) {
+                            if (num <= 1.0 || cellStr.includes('%')) {
+                                valueScores[c] += 2;
+                            } else {
+                                valueScores[c]++;
+                            }
+                        }
+                    }
+                });
+            });
+
+            let dateColIdx = -1;
+            let maxDateScore = -1;
+            for (let c = 0; c < maxCols; c++) {
+                if (dateScores[c] > maxDateScore) {
+                    maxDateScore = dateScores[c];
+                    dateColIdx = c;
+                }
+            }
+
+            let valueColIdx = -1;
+            let maxValueScore = -1;
+            for (let c = 0; c < maxCols; c++) {
+                if (c === dateColIdx) continue;
+                if (valueScores[c] > maxValueScore) {
+                    maxValueScore = valueScores[c];
+                    valueColIdx = c;
+                }
+            }
+
+            if (dateColIdx === -1) dateColIdx = 0;
+            if (valueColIdx === -1) valueColIdx = (dateColIdx === 0 && maxCols > 1) ? 1 : 0;
+
+            const rawParsed = [];
+            cleanRows.forEach((row, idx) => {
+                if (idx === 0) {
+                    const testVal = String(row[dateColIdx] || '').toLowerCase();
+                    if (testVal.includes('дат') || testVal.includes('date') || testVal.includes('time')) {
+                        return;
+                    }
+                }
+
+                const dateCell = row[dateColIdx];
+                const valueCell = row[valueColIdx];
+
+                if (dateCell === undefined || dateCell === null || valueCell === undefined || valueCell === null) return;
+
+                const dateStr = String(dateCell).trim();
+                const valStr = String(valueCell).trim();
+
+                if (!dateStr || !valStr) return;
+
+                const dateComponents = parseStrictDate(dateStr);
+                if (!dateComponents) return;
+
+                const localMidnightDate = new Date(dateComponents.y, dateComponents.m, dateComponents.d, 0, 0, 0, 0);
+                const val = parseSuccessValue(valStr);
+
+                rawParsed.push({ date: localMidnightDate, value: val });
+            });
+
+            if (rawParsed.length === 0) {
+                showToast("Не удалось извлечь данные! Убедитесь, что в файле есть колонка с датами (ГГГГ-ММ-ДД) и процентами.", true);
+                return;
+            }
+
+            rawParsed.sort((a, b) => a.date - b.date);
+
+            const uniqueMap = new Map();
+            rawParsed.forEach(item => {
+                const dateStr = `${item.date.getFullYear()}-${String(item.date.getMonth() + 1).padStart(2, '0')}-${String(item.date.getDate()).padStart(2, '0')}`;
+                uniqueMap.set(dateStr, item);
+            });
+            const sortedData = Array.from(uniqueMap.values()).sort((a, b) => a.date - b.date);
+
+            const processedData = [];
+            for (let i = 0; i < sortedData.length; i++) {
+                const current = sortedData[i];
+                let status = "Провал";
+                let difference = 0;
+
+                if (i === 0) {
+                    difference = current.value;
+                    if (current.value > 0) {
+                        status = "Успех";
+                    }
+                } else {
+                    const prev = sortedData[i - 1];
+                    difference = current.value - prev.value;
+                    if (current.value > prev.value) {
+                        status = "Успех";
+                    } else {
+                        status = "Провал";
+                    }
+                }
+
+                processedData.push({
+                    date: current.date,
+                    value: current.value,
+                    difference: difference,
+                    status: status
+                });
+            }
+
+            habitsData = processedData;
+
+            const emptyState = document.getElementById('empty-state');
+            const dashboardContainer = document.getElementById('dashboard-container');
+            const headerImportBtn = document.getElementById('header-import-btn');
+
+            if (emptyState) emptyState.classList.add('hidden');
+            if (dashboardContainer) dashboardContainer.classList.remove('hidden');
+            if (headerImportBtn) headerImportBtn.classList.remove('hidden');
+            closeImportModal();
+            
+            if (habitsData.length > 0) {
+                const sortedByDate = [...habitsData].sort((a,b) => a.date - b.date);
+                const minDateISO = formatDateToYYYYMMDD(sortedByDate[0].date);
+                const maxDateISO = formatDateToYYYYMMDD(sortedByDate[sortedByDate.length - 1].date);
+                
+                const startDateInput = document.getElementById('startDateInput');
+                const endDateInput = document.getElementById('endDateInput');
+                if (startDateInput) startDateInput.value = minDateISO;
+                if (endDateInput) endDateInput.value = maxDateISO;
+            }
+
+            showAllChronology = false;
+
+            populateYearSelector();
+
+            renderDashboard();
+            const messageExtra = customSourceInfo ? ` (${customSourceInfo})` : '';
+            showToast(`Успешно обработано! Записей: ${habitsData.length}${messageExtra}`);
+        }
+
+        function parseStrictDate(cleanStr) {
+            if (!cleanStr) return null;
+
+            let clean = String(cleanStr).trim().replace(/["]/g, '');
+            if (!clean) return null;
+
+            if (/^\d+(\.\d+)?$/.test(clean)) {
+                const num = parseFloat(clean);
+                if (num >= 35000 && num <= 65000) {
+                    const date = new Date((num - 25569) * 86400 * 1000);
+                    if (!isNaN(date.getTime())) {
+                        return {
+                            y: date.getUTCFullYear(),
+                            m: date.getUTCMonth(),
+                            d: date.getUTCDate()
+                        };
+                    }
+                }
+            }
+
+            let matchISO = clean.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[\sT]|$)/);
+            if (matchISO) {
+                let y = parseInt(matchISO[1], 10);
+                let m = parseInt(matchISO[2], 10) - 1;
+                let d = parseInt(matchISO[3], 10);
+                if (m >= 0 && m < 12 && d >= 1 && d <= 31) {
+                    return { y, m, d };
+                }
+            }
+
+            let matchRU = clean.match(/^(\d{1,2})[-./](\d{1,2})[-./](\d{4})(?:[\sT]|$)/);
+            if (matchRU) {
+                let d = parseInt(matchRU[1], 10);
+                let m = parseInt(matchRU[2], 10) - 1;
+                let y = parseInt(matchRU[3], 10);
+                
+                if ((m < 0 || m >= 12) && (d >= 1 && d <= 12)) {
+                    let temp = d;
+                    d = m + 1;
+                    m = temp - 1;
+                }
+                if (m >= 0 && m < 12 && d >= 1 && d <= 31) {
+                    return { y, m, d };
+                }
+            }
+
+            let matchRUShort = clean.match(/^(\d{1,2})[-./](\d{1,2})[-./](\d{2})(?:[\sT]|$)/);
+            if (matchRUShort) {
+                let d = parseInt(matchRUShort[1], 10);
+                let m = parseInt(matchRUShort[2], 10) - 1;
+                let y = parseInt(matchRUShort[3], 10);
+                y = y < 50 ? 2000 + y : 1900 + y;
+                
+                if ((m < 0 || m >= 12) && (d >= 1 && d <= 12)) {
+                    let temp = d;
+                    d = m + 1;
+                    m = temp - 1;
+                }
+                if (m >= 0 && m < 12 && d >= 1 && d <= 31) {
+                    return { y, m, d };
+                }
+            }
+
+            return null;
+        }
+
+        function parseSuccessValue(val) {
+            if (val === undefined || val === null) return 0;
+            const str = String(val).trim().toLowerCase().replace(/["]/g, '');
+            if (!str) return 0;
+
+            const cleanStr = str.replace(',', '.').replace('%', '');
+            const parsedFloat = parseFloat(cleanStr);
+            if (isNaN(parsedFloat)) {
+                return 0.0;
+            }
+
+            if (str.includes('%') || parsedFloat > 1.0) {
+                return parsedFloat / 100;
+            }
+
+            return parsedFloat >= 0 ? parsedFloat : 0.0;
+        }
+
+        function getFilteredData() {
+            const startDateStr = document.getElementById('startDateInput').value;
+            const endDateStr = document.getElementById('endDateInput').value;
+            
+            let filtered = [...habitsData];
+
+            if (startDateStr) {
+                const startDateParts = startDateStr.split('-');
+                const startDate = new Date(parseInt(startDateParts[0], 10), parseInt(startDateParts[1], 10) - 1, parseInt(startDateParts[2], 10), 0, 0, 0, 0);
+                filtered = filtered.filter(item => item.date >= startDate);
+            }
+
+            if (endDateStr) {
+                const endDateParts = endDateStr.split('-');
+                const endDate = new Date(parseInt(endDateParts[0], 10), parseInt(endDateParts[1], 10) - 1, parseInt(endDateParts[2], 10), 23, 59, 59, 999);
+                filtered = filtered.filter(item => item.date <= endDate);
+            }
+
+            return filtered;
+        }
+
+        function getGroupedData(filteredData, mode) {
+            if (mode === 'day') {
+                return filteredData.map(item => ({
+                    ...item,
+                    dateForSorting: item.date,
+                    successRate: item.status === 'Успех' ? 1 : 0,
+                    successDays: item.status === 'Успех' ? 1 : 0,
+                    totalDays: 1,
+                    label: formatDateToString(item.date)
+                }));
+            }
+
+            const groups = {};
+
+            filteredData.forEach(item => {
+                let key, label;
+                const d = item.date;
+                const year = d.getFullYear();
+
+                if (mode === 'week') {
+                    const target = new Date(d.valueOf());
+                    const dayNr = (d.getDay() + 6) % 7;
+                    target.setDate(target.getDate() - dayNr + 3);
+                    const firstThursday = target.valueOf();
+                    target.setMonth(0, 1);
+                    if (target.getDay() !== 4) {
+                        target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+                    }
+                    const weekNum = 1 + Math.ceil((firstThursday - target) / 604800000);
+                    key = `${year}-W${String(weekNum).padStart(2, '0')}`;
+                    label = `Неделя ${weekNum} (${year})`;
+                } else if (mode === 'month') {
+                    const month = d.getMonth() + 1;
+                    key = `${year}-${String(month).padStart(2, '0')}`;
+                    label = `${String(month).padStart(2, '0')}.${year}`;
+                } else if (mode === 'quarter') {
+                    const quarter = Math.floor(d.getMonth() / 3) + 1;
+                    const roman = ["I", "II", "III", "IV"][quarter - 1];
+                    key = `${year}-Q${quarter}`;
+                    label = `${roman} кв. ${year}`;
+                } else if (mode === 'year') {
+                    key = `${year}`;
+                    label = `${year} год`;
+                }
+
+                if (!groups[key]) {
+                    groups[key] = {
+                        key: key,
+                        label: label,
+                        dateForSorting: new Date(d),
+                        items: []
+                    };
+                }
+                groups[key].items.push(item);
+            });
+
+            const groupedList = Object.values(groups).sort((a, b) => a.dateForSorting - b.dateForSorting);
+
+            for (let i = 0; i < groupedList.length; i++) {
+                const group = groupedList[i];
+                const totalDays = group.items.length;
+                const successDays = group.items.filter(item => item.status === 'Успех').length;
+                const totalVal = group.items.reduce((sum, item) => sum + item.value, 0);
+                const avgValue = totalDays > 0 ? (totalVal / totalDays) : 0;
+
+                let difference = 0;
+                if (i > 0) {
+                    const prevGroup = groupedList[i - 1];
+                    const prevTotalDays = prevGroup.items.length;
+                    const prevTotalVal = prevGroup.items.reduce((sum, item) => sum + item.value, 0);
+                    const prevAvgValue = prevTotalDays > 0 ? (prevTotalVal / prevTotalDays) : 0;
+                    difference = avgValue - prevAvgValue;
+                } else {
+                    difference = avgValue;
+                }
+
+                group.value = avgValue;
+                group.difference = difference;
+                group.totalDays = totalDays;
+                group.successDays = successDays;
+                group.successRate = totalDays > 0 ? (successDays / totalDays) : 0;
+            }
+
+            return groupedList;
+        }
+
+        function renderDashboard() {
+            const filteredData = getFilteredData();
+            
+            if (activeTab === 'overview') {
+                renderOverviewTab();
+            } else if (activeTab === 'month-comp') {
+                renderMonthCompTab();
+            } else if (activeTab === 'chronology') {
+                renderHabitsTable(filteredData);
+            } else if (activeTab === 'streaks') {
+                renderStreaksTable(filteredData);
+            } else if (activeTab === 'charts') {
+                renderTrendsChart();
+            }
+        }
+
+        function openImportModal() {
+            const modal = document.getElementById('importModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+            }
+        }
+
+        function closeImportModal() {
+            const modal = document.getElementById('importModal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function populateYearSelector() {
+            const selector = document.getElementById('yearSelector');
+            if (!selector) return;
+
+            const currentVal = selector.value;
+            selector.innerHTML = '<option value="all">Год: Все</option>';
+
+            if (habitsData.length === 0) return;
+
+            const yearsSet = new Set();
+            habitsData.forEach(item => {
+                yearsSet.add(item.date.getFullYear());
+            });
+
+            const yearsSorted = Array.from(yearsSet).sort((a, b) => b - a);
+
+            yearsSorted.forEach(year => {
+                const opt = document.createElement('option');
+                opt.value = String(year);
+                opt.textContent = `${year} год`;
+                selector.appendChild(opt);
+            });
+
+            if (yearsSet.has(parseInt(currentVal, 10))) {
+                selector.value = currentVal;
+            } else {
+                selector.value = 'all';
+            }
+        }
+
+        function selectYearRange(val) {
+            const startDateInput = document.getElementById('startDateInput');
+            const endDateInput = document.getElementById('endDateInput');
+
+            if (val === 'all') {
+                if (startDateInput) startDateInput.value = '';
+                if (endDateInput) endDateInput.value = '';
+                filterHistoryTable();
+                return;
+            }
+
+            const targetYear = parseInt(val, 10);
+            if (isNaN(targetYear)) return;
+
+            const yearItems = habitsData.filter(item => item.date.getFullYear() === targetYear);
+            if (yearItems.length === 0) return;
+
+            const sorted = [...yearItems].sort((a, b) => a.date - b.date);
+            const minDateStr = formatDateToYYYYMMDD(sorted[0].date);
+            const maxDateStr = formatDateToYYYYMMDD(sorted[sorted.length - 1].date);
+
+            if (startDateInput) startDateInput.value = minDateStr;
+            if (endDateInput) endDateInput.value = maxDateStr;
+
+            filterHistoryTable();
+        }
+
+        function updateYearSelectorFromInputs() {
+            const selector = document.getElementById('yearSelector');
+            const startDateStr = document.getElementById('startDateInput').value;
+            const endDateStr = document.getElementById('endDateInput').value;
+            if (!selector) return;
+
+            if (!startDateStr && !endDateStr) {
+                selector.value = 'all';
+                return;
+            }
+
+            if (startDateStr && endDateStr) {
+                const startY = startDateStr.split('-')[0];
+                const endY = endDateStr.split('-')[0];
+                if (startY === endY) {
+                    const optExists = Array.from(selector.options).some(o => o.value === startY);
+                    if (optExists) {
+                        selector.value = startY;
+                        return;
+                    }
+                }
+            }
+            selector.value = 'all';
+        }
+
+        function clearDateRange() {
+            const startDateInput = document.getElementById('startDateInput');
+            const endDateInput = document.getElementById('endDateInput');
+            const yearSelector = document.getElementById('yearSelector');
+            if (startDateInput) startDateInput.value = '';
+            if (endDateInput) endDateInput.value = '';
+            if (yearSelector) yearSelector.value = 'all';
+            filterHistoryTable();
+        }
+
+        function filterHistoryTable() {
+            updateYearSelectorFromInputs();
+            renderDashboard();
+        }
+
+        function onSortChange(value) {
+            currentSortMode = value;
+            renderDashboard();
+        }
+
+        function setGroupingMode(mode) {
+            currentGroupingMode = mode;
+            showAllChronology = false; 
+            
+            const modes = ['day', 'week', 'month', 'quarter', 'year'];
+            modes.forEach(m => {
+                const btn = document.getElementById(`group-${m}-btn`);
+                if (btn) {
+                    if (m === mode) {
+                        btn.className = "px-3 py-1.5 text-xs font-bold rounded-lg bg-white shadow-sm text-primary-600 transition-all";
+                    } else {
+                        btn.className = "px-3 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:text-slate-700 transition-all";
+                    }
+                }
+            });
+
+            renderDashboard();
+        }
+
+        function setChartGroupingMode(mode) {
+            chartGroupingMode = mode;
+            const modes = ['day', 'week', 'month', 'quarter', 'year'];
+            modes.forEach(m => {
+                const btn = document.getElementById(`chart-group-${m}-btn`);
+                if (btn) {
+                    if (m === mode) {
+                        btn.className = "flex-1 sm:flex-initial px-3 py-1.5 text-xs font-bold rounded-lg bg-white shadow-sm text-primary-600 transition-all";
+                    } else {
+                        btn.className = "flex-1 sm:flex-initial px-3 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:text-slate-700 transition-all";
+                    }
+                }
+            });
+
+            renderTrendsChart();
+        }
+
+        function switchTab(tabName) {
+            activeTab = tabName;
+            
+            const overviewTabBtn = document.getElementById('tab-overview-btn');
+            const monthCompTabBtn = document.getElementById('tab-month-comp-btn');
+            const chronTabBtn = document.getElementById('tab-chronology-btn');
+            const streaksTabBtn = document.getElementById('tab-streaks-btn');
+            const chartsTabBtn = document.getElementById('tab-charts-btn');
+            
+            const overviewContent = document.getElementById('overview-view-content');
+            const monthCompContent = document.getElementById('month-comp-view-content');
+            const chronContent = document.getElementById('chronology-view-content');
+            const streaksContent = document.getElementById('streaks-view-content');
+            const chartsContent = document.getElementById('charts-view-content');
+            
+            const sortContainer = document.getElementById('sort-selector-container');
+            const groupingContainer = document.getElementById('grouping-selector-container');
+            const dateRangeContainer = document.getElementById('date-range-container');
+            const yearContainer = document.getElementById('year-selector-container');
+
+            [overviewTabBtn, monthCompTabBtn, chronTabBtn, streaksTabBtn, chartsTabBtn].forEach(btn => {
+                if (btn) {
+                    btn.className = "py-3 text-xs font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2 transition focus:outline-none whitespace-nowrap";
+                }
+            });
+
+            [overviewContent, monthCompContent, chronContent, streaksContent, chartsContent].forEach(c => {
+                if (c) {
+                    c.classList.add('hidden');
+                    c.classList.remove('block');
+                }
+            });
+
+            if (tabName === 'overview') {
+                if (overviewTabBtn) overviewTabBtn.className = "py-3 text-xs font-bold border-b-2 border-primary-600 text-primary-600 flex items-center gap-2 transition focus:outline-none whitespace-nowrap";
+                if (overviewContent) { overviewContent.classList.remove('hidden'); overviewContent.classList.add('block'); }
+                if (sortContainer) sortContainer.classList.add('invisible');
+                if (groupingContainer) groupingContainer.classList.add('hidden');
+                if (dateRangeContainer) dateRangeContainer.classList.add('invisible');
+                if (yearContainer) yearContainer.classList.add('invisible');
+            } else if (tabName === 'month-comp') {
+                if (monthCompTabBtn) monthCompTabBtn.className = "py-3 text-xs font-bold border-b-2 border-primary-600 text-primary-600 flex items-center gap-2 transition focus:outline-none whitespace-nowrap";
+                if (monthCompContent) { monthCompContent.classList.remove('hidden'); monthCompContent.classList.add('block'); }
+                if (sortContainer) sortContainer.classList.add('invisible');
+                if (groupingContainer) groupingContainer.classList.add('hidden');
+                if (dateRangeContainer) dateRangeContainer.classList.remove('invisible');
+                if (yearContainer) yearContainer.classList.remove('invisible');
+            } else if (tabName === 'chronology') {
+                if (chronTabBtn) chronTabBtn.className = "py-3 text-xs font-bold border-b-2 border-primary-600 text-primary-600 flex items-center gap-2 transition focus:outline-none whitespace-nowrap";
+                if (chronContent) { chronContent.classList.remove('hidden'); chronContent.classList.add('block'); }
+                if (sortContainer) sortContainer.classList.remove('invisible');
+                if (groupingContainer) groupingContainer.classList.remove('hidden');
+                if (dateRangeContainer) dateRangeContainer.classList.remove('invisible');
+                if (yearContainer) yearContainer.classList.remove('invisible');
+            } else if (tabName === 'streaks') {
+                if (streaksTabBtn) streaksTabBtn.className = "py-3 text-xs font-bold border-b-2 border-primary-600 text-primary-600 flex items-center gap-2 transition focus:outline-none whitespace-nowrap";
+                if (streaksContent) { streaksContent.classList.remove('hidden'); streaksContent.classList.add('block'); }
+                if (sortContainer) sortContainer.classList.add('invisible');
+                if (groupingContainer) groupingContainer.classList.add('hidden');
+                if (dateRangeContainer) dateRangeContainer.classList.remove('invisible');
+                if (yearContainer) yearContainer.classList.remove('invisible');
+            } else if (tabName === 'charts') {
+                if (chartsTabBtn) chartsTabBtn.className = "py-3 text-xs font-bold border-b-2 border-primary-600 text-primary-600 flex items-center gap-2 transition focus:outline-none whitespace-nowrap";
+                if (chartsContent) { chartsContent.classList.remove('hidden'); chartsContent.classList.add('block'); }
+                if (sortContainer) sortContainer.classList.add('invisible');
+                if (groupingContainer) groupingContainer.classList.add('hidden');
+                if (dateRangeContainer) dateRangeContainer.classList.remove('invisible');
+                if (yearContainer) yearContainer.classList.remove('invisible');
+            }
+            
+            renderDashboard();
+        }
+
+        function showAllChronologyDays() {
+            showAllChronology = true;
+            renderDashboard();
+        }
+
+        function renderOverviewTab() {
+            if (habitsData.length === 0) return;
+
+            const chronData = [...habitsData].sort((a, b) => a.date - b.date);
+            const latestItem = chronData[chronData.length - 1];
+            const latestDate = latestItem.date;
+
+            const targetDay = latestDate.getDate();
+            const targetMonth = latestDate.getMonth();
+            const targetYear = latestDate.getFullYear();
+            const minDate = chronData[0].date;
+
+            const totalDaysAllTime = habitsData.length;
+            const totalSuccessesAllTime = habitsData.filter(item => item.status === 'Успех').length;
+            const overallPercentage = totalDaysAllTime > 0 ? (totalSuccessesAllTime * 100 / totalDaysAllTime) : 0;
+
+            const overallPercentEl = document.getElementById('overview-overall-percent');
+            const overallBarEl = document.getElementById('overview-overall-bar');
+            const overallCountEl = document.getElementById('overview-overall-count');
+
+            if (overallPercentEl) overallPercentEl.textContent = overallPercentage.toFixed(2) + '%';
+            if (overallBarEl) overallBarEl.style.width = overallPercentage.toFixed(2) + '%';
+            if (overallCountEl) overallCountEl.textContent = `${totalSuccessesAllTime} ${getNounSuccesses(totalSuccessesAllTime)} из ${totalDaysAllTime} ${getNounDays(totalDaysAllTime)} в истории`;
+
+            // Динамика за 30 дней
+            const msInDay = 24 * 60 * 60 * 1000;
+            const latestTime = latestDate.getTime();
+            const thirtyDaysAgoTime = latestTime - 30 * msInDay;
+
+            const itemsUpTo30DaysAgo = chronData.filter(item => item.date.getTime() <= thirtyDaysAgoTime);
+            const totalDays30DaysAgo = itemsUpTo30DaysAgo.length;
+            const totalSuccesses30DaysAgo = itemsUpTo30DaysAgo.filter(item => item.status === 'Успех').length;
+
+            const change30El = document.getElementById('overview-last30-change');
+            if (change30El) {
+                if (totalDays30DaysAgo === 0) {
+                    change30El.className = "text-[11px] text-slate-400 font-semibold mt-0.5 select-none";
+                    change30El.textContent = "нет данных 30д назад";
+                } else {
+                    const percentage30DaysAgo = (totalSuccesses30DaysAgo * 100 / totalDays30DaysAgo);
+                    const change30Percent = overallPercentage - percentage30DaysAgo;
+
+                    if (change30Percent > 0) {
+                        change30El.className = "text-[11px] font-extrabold text-emerald-600 mt-0.5";
+                        change30El.innerHTML = `<span class="inline-block transform scale-90">▲</span> +${change30Percent.toFixed(2)}% <span class="text-[9px] font-semibold text-slate-400 block sm:inline sm:ml-0.5">(за 30д)</span>`;
+                    } else if (change30Percent < 0) {
+                        change30El.className = "text-[11px] font-extrabold text-rose-600 mt-0.5";
+                        change30El.innerHTML = `<span class="inline-block transform scale-90">▼</span> ${change30Percent.toFixed(2)}% <span class="text-[9px] font-semibold text-slate-400 block sm:inline sm:ml-0.5">(за 30д)</span>`;
+                    } else {
+                        change30El.className = "text-[11px] font-extrabold text-slate-400 mt-0.5 select-none";
+                        change30El.innerHTML = `0.00% <span class="text-[9px] font-semibold text-slate-400 block sm:inline sm:ml-0.5">(за 30д)</span>`;
+                    }
+                }
+            }
+
+            const monthsListContainer = document.getElementById('overview-months-list');
+            if (monthsListContainer) {
+                monthsListContainer.innerHTML = '';
+                const targetDayEl = document.getElementById('overview-target-day');
+                if (targetDayEl) targetDayEl.textContent = `${targetDay}-го`;
+
+                const monthsToDisplay = [];
+                for (let m = 0; m < 6; m++) {
+                    let checkMonth = latestDate.getMonth() - m;
+                    let checkYear = latestDate.getFullYear();
+                    while (checkMonth < 0) {
+                        checkMonth += 12;
+                        checkYear -= 1;
+                    }
+
+                    const lastDayOfCheckMonth = new Date(checkYear, checkMonth + 1, 0);
+                    if (lastDayOfCheckMonth < minDate) {
+                        break; 
+                    }
+
+                    const monthItems = chronData.filter(item => 
+                        item.date.getFullYear() === checkYear &&
+                        item.date.getMonth() === checkMonth &&
+                        item.date.getDate() <= targetDay
+                    );
+
+                    monthsToDisplay.push({
+                        year: checkYear,
+                        month: checkMonth,
+                        items: monthItems
+                    });
+                }
+
+                const latestMonthObj = monthsToDisplay[0];
+                const latestSuccessCount = latestMonthObj ? latestMonthObj.items.filter(item => item.status === 'Успех').length : 0;
+
+                monthsToDisplay.forEach(mInfo => {
+                    const monthName = new Date(mInfo.year, mInfo.month, 1).toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
+                    const total = mInfo.items.length;
+                    const successCount = mInfo.items.filter(item => item.status === 'Успех').length;
+                    const avg = total > 0 ? mInfo.items.reduce((s, i) => s + i.value, 0) / total : 0;
+                    const avgPercent = (avg * 100).toFixed(2) + '%';
+
+                    const isCurrent = mInfo.year === targetYear && mInfo.month === targetMonth;
+                    let diffBadgeHtml = "";
+
+                    if (isCurrent) {
+                        diffBadgeHtml = `
+                            <span class="inline-flex items-center gap-1 font-bold text-xs text-primary-700 bg-primary-100 px-2.5 py-1 rounded-lg select-none">
+                                Базовый месяц
+                            </span>`;
+                    } else {
+                        const successDiff = latestSuccessCount - successCount;
+
+                        if (successDiff > 0) {
+                            diffBadgeHtml = `
+                                <span class="inline-flex items-center gap-1 font-bold text-xs font-mono text-emerald-600 bg-emerald-100/70 px-2.5 py-1 rounded-lg">
+                                    +${successDiff} ${getNounSuccesses(successDiff)} к прошл. мес.
+                                </span>`;
+                        } else if (successDiff < 0) {
+                            diffBadgeHtml = `
+                                <span class="inline-flex items-center gap-1 font-bold text-xs font-mono text-rose-600 bg-rose-100/70 px-2.5 py-1 rounded-lg">
+                                    ${successDiff} ${getNounSuccesses(Math.abs(successDiff))} к прошл. мес.
+                                </span>`;
+                        } else {
+                            diffBadgeHtml = `
+                                <span class="inline-flex items-center gap-1 font-bold text-xs font-mono text-slate-500 bg-slate-100/70 px-2.5 py-1 rounded-lg select-none">
+                                    Без изменений
+                                </span>`;
+                        }
+                    }
+
+                    let dataText = '';
+                    if (total > 0) {
+                        dataText = `${successCount} ${getNounSuccesses(successCount)} из ${total} дней в сумме (${avgPercent})`;
+                    } else {
+                        dataText = 'Нет записей в этот период';
+                    }
+
+                    const highlightClass = isCurrent 
+                        ? 'border-primary-500/30 bg-primary-50/50' 
+                        : 'border-slate-100 bg-white';
+
+                    const itemHtml = `
+                        <div class="flex items-center justify-between p-3.5 rounded-xl border ${highlightClass} text-xs shadow-sm transition hover:scale-[1.01]">
+                            <div class="space-y-1">
+                                <span class="font-bold text-slate-900 capitalize">${monthName} ${isCurrent ? '<span class="text-[9px] bg-primary-100 text-primary-700 px-1.5 py-0.5 rounded ml-1.5 font-semibold">Текущий</span>' : ''}</span>
+                                <span class="block text-[10px] text-slate-400 font-medium">${dataText}</span>
+                            </div>
+                            <div class="text-right">
+                                ${diffBadgeHtml}
+                            </div>
+                        </div>
+                    `;
+                    monthsListContainer.insertAdjacentHTML('beforeend', itemHtml);
+                });
+            }
+
+            const yearsListContainer = document.getElementById('overview-years-list');
+            if (yearsListContainer) {
+                yearsListContainer.innerHTML = '';
+                
+                const targetDayStr = String(targetDay).padStart(2, '0');
+                const targetMonthStr = String(targetMonth + 1).padStart(2, '0');
+                const targetDateEl = document.getElementById('overview-target-date');
+                if (targetDateEl) targetDateEl.textContent = `${targetDayStr}.${targetMonthStr}`;
+
+                const yearsToDisplay = [];
+                const minYear = minDate.getFullYear();
+                const maxYear = latestDate.getFullYear();
+
+                for (let y = maxYear; y >= minYear; y--) {
+                    const ytdItems = chronData.filter(item => {
+                        const itemYear = item.date.getFullYear();
+                        if (itemYear !== y) return false;
+                        
+                        const m = item.date.getMonth();
+                        const d = item.date.getDate();
+                        if (m < targetMonth) return true;
+                        if (m === targetMonth && d <= targetDay) return true;
+                        return false;
+                    });
+
+                    yearsToDisplay.push({
+                        year: y,
+                        items: ytdItems
+                    });
+                }
+
+                const latestYearObj = yearsToDisplay[0];
+                const latestYearSuccessCount = latestYearObj ? latestYearObj.items.filter(item => item.status === 'Успех').length : 0;
+                const latestYearVal = latestYearObj ? latestYearObj.year : maxYear;
+
+                yearsToDisplay.forEach(yInfo => {
+                    const total = yInfo.items.length;
+                    const successCount = yInfo.items.filter(item => item.status === 'Успех').length;
+                    const avg = total > 0 ? yInfo.items.reduce((s, i) => s + i.value, 0) / total : 0;
+                    const avgPercent = (avg * 100).toFixed(2) + '%';
+
+                    const isCurrent = yInfo.year === maxYear;
+                    let diffBadgeHtml = "";
+
+                    if (isCurrent) {
+                        diffBadgeHtml = `
+                            <span class="inline-flex items-center gap-1 font-bold text-xs text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg select-none">
+                                Базовый год
+                            </span>`;
+                    } else {
+                        const successDiff = latestYearSuccessCount - successCount;
+
+                        if (total > 0 && latestYearObj && latestYearObj.items.length > 0) {
+                            if (successDiff > 0) {
+                                diffBadgeHtml = `
+                                    <span class="inline-flex items-center gap-1 font-bold text-xs font-mono text-emerald-600 bg-emerald-100/70 px-2.5 py-1 rounded-lg">
+                                        +${successDiff} ${getNounSuccesses(successDiff)} в ${latestYearVal} г.
+                                    </span>`;
+                            } else if (successDiff < 0) {
+                                diffBadgeHtml = `
+                                    <span class="inline-flex items-center gap-1 font-bold text-xs font-mono text-rose-600 bg-rose-100/70 px-2.5 py-1 rounded-lg">
+                                        ${successDiff} ${getNounSuccesses(Math.abs(successDiff))} в ${latestYearVal} г.
+                                    </span>`;
+                            } else {
+                                diffBadgeHtml = `
+                                    <span class="inline-flex items-center gap-1 font-bold text-xs font-mono text-slate-500 bg-slate-100/70 px-2.5 py-1 rounded-lg select-none">
+                                        Без изменений
+                                    </span>`;
+                            }
+                        } else {
+                            diffBadgeHtml = `
+                                <span class="inline-flex items-center gap-1 font-bold text-[10px] text-slate-400 bg-slate-100/30 px-2.5 py-1 rounded-lg select-none">
+                                    Нет данных
+                                </span>`;
+                        }
+                    }
+
+                    let dataText = '';
+                    if (total > 0) {
+                        dataText = `${successCount} ${getNounSuccesses(successCount)} из ${total} дней в сумме (${avgPercent})`;
+                    } else {
+                        dataText = 'Нет записей в этот период';
+                    }
+
+                    const highlightClass = isCurrent 
+                        ? 'border-emerald-500/30 bg-emerald-50/50' 
+                        : 'border-slate-100 bg-white';
+
+                    const itemHtml = `
+                        <div class="flex items-center justify-between p-3.5 rounded-xl border ${highlightClass} text-xs shadow-sm transition hover:scale-[1.01]">
+                            <div class="space-y-1">
+                                <span class="font-bold text-slate-900">${yInfo.year} год ${isCurrent ? '<span class="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded ml-1.5 font-semibold">Текущий</span>' : ''}</span>
+                                <span class="block text-[10px] text-slate-400 font-medium">Период: 01.01 — ${targetDayStr}.${targetMonthStr} • ${dataText}</span>
+                            </div>
+                            <div class="text-right">
+                                ${diffBadgeHtml}
+                            </div>
+                        </div>
+                    `;
+                    yearsListContainer.insertAdjacentHTML('beforeend', itemHtml);
+                });
+            }
+
+            const rowCountEl = document.getElementById('rendered-rows-count');
+            if (rowCountEl) rowCountEl.textContent = `Загружено записей в историю: ${habitsData.length}`;
+            if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+        }
+
+        function setMonthCompFilterMode(mode) {
+            monthCompFilterMode = mode;
+            const fullBtn = document.getElementById('mcomp-filter-full-btn');
+            const mtdBtn = document.getElementById('mcomp-filter-mtd-btn');
+            
+            if (mode === 'full') {
+                if (fullBtn) fullBtn.className = "px-2.5 py-1 rounded-lg bg-white shadow-sm text-primary-700 transition";
+                if (mtdBtn) mtdBtn.className = "px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition";
+            } else {
+                if (fullBtn) fullBtn.className = "px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition";
+                if (mtdBtn) mtdBtn.className = "px-2.5 py-1 rounded-lg bg-white shadow-sm text-primary-700 transition";
+            }
+
+            renderMonthCompTab();
+        }
+
+        function onMonthCompSortChange(val) {
+            monthCompSortMode = val;
+            renderMonthCompTab();
+        }
+
+        function renderMonthCompTab() {
+            const filteredData = getFilteredData();
+            if (filteredData.length === 0) return;
+
+            const listContainer = document.getElementById('all-months-list-container');
+            if (!listContainer) return;
+            listContainer.innerHTML = '';
+
+            const chronData = [...filteredData].sort((a, b) => a.date - b.date);
+            const latestItem = chronData[chronData.length - 1];
+            const targetDay = latestItem.date.getDate();
+            const targetMonth = latestItem.date.getMonth();
+            const targetYear = latestItem.date.getFullYear();
+
+            const cutoffEl = document.getElementById('mcomp-cutoff-day');
+            if (cutoffEl) cutoffEl.textContent = targetDay;
+
+            // Группировка всех данных по месяцам
+            const monthsMap = new Map();
+
+            chronData.forEach(item => {
+                const y = item.date.getFullYear();
+                const m = item.date.getMonth();
+                const monthKey = `${y}-${String(m + 1).padStart(2, '0')}`;
+
+                if (!monthsMap.has(monthKey)) {
+                    monthsMap.set(monthKey, {
+                        year: y,
+                        month: m,
+                        monthKey: monthKey,
+                        dateForSort: new Date(y, m, 1),
+                        fullItems: [],
+                        mtdItems: []
+                    });
+                }
+
+                const monthObj = monthsMap.get(monthKey);
+                monthObj.fullItems.push(item);
+                if (item.date.getDate() <= targetDay) {
+                    monthObj.mtdItems.push(item);
+                }
+            });
+
+            const monthsArray = Array.from(monthsMap.values());
+
+            // Вычисляем показатели для каждого месяца
+            monthsArray.forEach(mObj => {
+                const itemsToUse = monthCompFilterMode === 'mtd' ? mObj.mtdItems : mObj.fullItems;
+                const totalDays = itemsToUse.length;
+                const successDays = itemsToUse.filter(i => i.status === 'Успех').length;
+                const successRate = totalDays > 0 ? (successDays / totalDays) : 0;
+                const avgValue = totalDays > 0 ? (itemsToUse.reduce((s, i) => s + i.value, 0) / totalDays) : 0;
+
+                mObj.activeTotalDays = totalDays;
+                mObj.activeSuccessDays = successDays;
+                mObj.activeSuccessRate = successRate;
+                mObj.activeAvgValue = avgValue;
+            });
+
+            // Определяем текущий месяц и предыдущий хронологический
+            const currentMonthObj = monthsArray.find(m => m.year === targetYear && m.month === targetMonth) || monthsArray[monthsArray.length - 1];
+            const currentSuccessCount = currentMonthObj ? currentMonthObj.activeSuccessDays : 0;
+            const currentSuccessRate = currentMonthObj ? currentMonthObj.activeSuccessRate : 0;
+
+            // Находим наилучший и наихудший месяц (при равенстве показателей преимущество у более нового месяца)
+            let bestMonth = monthsArray[0];
+            let worstMonth = monthsArray[0];
+
+            monthsArray.forEach(m => {
+                if (m.activeSuccessRate > bestMonth.activeSuccessRate || 
+                   (m.activeSuccessRate === bestMonth.activeSuccessRate && m.activeSuccessDays > bestMonth.activeSuccessDays) ||
+                   (m.activeSuccessRate === bestMonth.activeSuccessRate && m.activeSuccessDays === bestMonth.activeSuccessDays && m.dateForSort > bestMonth.dateForSort)) {
+                    bestMonth = m;
+                }
+                if (m.activeSuccessRate < worstMonth.activeSuccessRate || 
+                   (m.activeSuccessRate === worstMonth.activeSuccessRate && m.activeSuccessDays < worstMonth.activeSuccessDays) ||
+                   (m.activeSuccessRate === worstMonth.activeSuccessRate && m.activeSuccessDays === worstMonth.activeSuccessDays && m.dateForSort > worstMonth.dateForSort)) {
+                    worstMonth = m;
+                }
+            });
+
+            // Обновляем плашки с лучшим и худшим месяцем
+            const bestTitleEl = document.getElementById('best-month-title');
+            const bestSubEl = document.getElementById('best-month-subtitle');
+            const worstTitleEl = document.getElementById('worst-month-title');
+            const worstSubEl = document.getElementById('worst-month-subtitle');
+
+            if (bestTitleEl && bestMonth) {
+                const monthName = new Date(bestMonth.year, bestMonth.month, 1).toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
+                bestTitleEl.textContent = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+                bestSubEl.textContent = `${(bestMonth.activeSuccessRate * 100).toFixed(2)}% успеха (${bestMonth.activeSuccessDays} из ${bestMonth.activeTotalDays} дн.)`;
+            }
+
+            if (worstTitleEl && worstMonth) {
+                const monthName = new Date(worstMonth.year, worstMonth.month, 1).toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
+                worstTitleEl.textContent = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+                worstSubEl.textContent = `${(worstMonth.activeSuccessRate * 100).toFixed(2)}% успеха (${worstMonth.activeSuccessDays} из ${worstMonth.activeTotalDays} дн.)`;
+            }
+
+            // Сортировка всего списка (при одинаковом результате более свежий месяц выводится выше)
+            const sortedMonths = [...monthsArray];
+            sortedMonths.sort((a, b) => {
+                if (monthCompSortMode === 'best') {
+                    if (b.activeSuccessRate !== a.activeSuccessRate) {
+                        return b.activeSuccessRate - a.activeSuccessRate;
+                    }
+                    if (b.activeSuccessDays !== a.activeSuccessDays) {
+                        return b.activeSuccessDays - a.activeSuccessDays;
+                    }
+                    return b.dateForSort - a.dateForSort;
+                } else if (monthCompSortMode === 'worst') {
+                    if (a.activeSuccessRate !== b.activeSuccessRate) {
+                        return a.activeSuccessRate - b.activeSuccessRate;
+                    }
+                    if (a.activeSuccessDays !== b.activeSuccessDays) {
+                        return a.activeSuccessDays - b.activeSuccessDays;
+                    }
+                    return b.dateForSort - a.dateForSort;
+                } else if (monthCompSortMode === 'date-desc') {
+                    return b.dateForSort - a.dateForSort;
+                } else if (monthCompSortMode === 'date-asc') {
+                    return a.dateForSort - b.dateForSort;
+                } else if (monthCompSortMode === 'count-desc') {
+                    if (b.activeSuccessDays !== a.activeSuccessDays) {
+                        return b.activeSuccessDays - a.activeSuccessDays;
+                    }
+                    if (b.activeSuccessRate !== a.activeSuccessRate) {
+                        return b.activeSuccessRate - a.activeSuccessRate;
+                    }
+                    return b.dateForSort - a.dateForSort;
+                }
+                return 0;
+            });
+
+            // Рендеринг всех месяцев
+            sortedMonths.forEach((mObj, index) => {
+                const monthName = new Date(mObj.year, mObj.month, 1).toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
+                const formattedName = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+                const isCurrent = mObj.year === targetYear && mObj.month === targetMonth;
+
+                const percentStr = (mObj.activeSuccessRate * 100).toFixed(2) + '%';
+                const successCount = mObj.activeSuccessDays;
+                const totalCount = mObj.activeTotalDays;
+
+                // Место в рейтинге (при совпадении результатов более новый месяц оказывается выше)
+                const rankByBest = [...monthsArray].sort((a, b) => {
+                    if (b.activeSuccessRate !== a.activeSuccessRate) return b.activeSuccessRate - a.activeSuccessRate;
+                    if (b.activeSuccessDays !== a.activeSuccessDays) return b.activeSuccessDays - a.activeSuccessDays;
+                    return b.dateForSort - a.dateForSort;
+                }).findIndex(m => m.monthKey === mObj.monthKey) + 1;
+
+                let rankBadge = '';
+                if (rankByBest === 1) {
+                    rankBadge = `<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">🏆 #1 Лучший</span>`;
+                } else if (rankByBest === monthsArray.length && monthsArray.length > 1) {
+                    rankBadge = `<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">⚠️ Худший</span>`;
+                } else {
+                    rankBadge = `<span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-600">Место #${rankByBest}</span>`;
+                }
+
+                // Сравнение с текущим месяцем
+                let comparisonTag = '';
+                if (isCurrent) {
+                    comparisonTag = `<span class="font-bold text-xs text-primary-700 bg-primary-100 px-2.5 py-1 rounded-lg">Текущий месяц</span>`;
+                } else {
+                    const diffCount = currentSuccessCount - successCount;
+                    if (diffCount > 0) {
+                        comparisonTag = `<span class="font-bold text-xs font-mono text-emerald-600 bg-emerald-100/70 px-2.5 py-1 rounded-lg">+${diffCount} ${getNounSuccesses(diffCount)} в тек. мес.</span>`;
+                    } else if (diffCount < 0) {
+                        comparisonTag = `<span class="font-bold text-xs font-mono text-rose-600 bg-rose-100/70 px-2.5 py-1 rounded-lg">${diffCount} ${getNounSuccesses(Math.abs(diffCount))} в тек. мес.</span>`;
+                    } else {
+                        comparisonTag = `<span class="font-bold text-xs font-mono text-slate-500 bg-slate-100/70 px-2.5 py-1 rounded-lg">Равно с тек. мес.</span>`;
+                    }
+                }
+
+                const borderClass = isCurrent 
+                    ? 'border-primary-400 bg-primary-50/40 shadow-sm' 
+                    : rankByBest === 1 
+                        ? 'border-amber-300 bg-amber-50/20' 
+                        : 'border-slate-100 bg-white';
+
+                const cardHtml = `
+                    <div class="p-4 rounded-xl border ${borderClass} transition hover:shadow-md">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-extrabold text-slate-900 text-sm">${formattedName}</span>
+                                    ${isCurrent ? '<span class="text-[9px] bg-primary-600 text-white font-bold px-2 py-0.5 rounded-full">Текущий</span>' : ''}
+                                    ${rankBadge}
+                                </div>
+                                <p class="text-xs text-slate-500 font-medium">
+                                    Успехов: <span class="font-bold text-slate-800">${successCount}</span> из <span class="font-bold text-slate-800">${totalCount}</span> ${getNounDays(totalCount)}
+                                    ${monthCompFilterMode === 'mtd' ? ` <span class="text-[10px] text-slate-400">(до ${targetDay}-го числа)</span>` : ''}
+                                </p>
+                            </div>
+
+                            <div class="flex items-center justify-between sm:justify-end gap-4">
+                                <div class="text-left sm:text-right">
+                                    <span class="text-base font-extrabold text-primary-600 font-mono block">${percentStr}</span>
+                                    <span class="text-[10px] text-slate-400 font-medium">Успешность</span>
+                                </div>
+                                <div>
+                                    ${comparisonTag}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar for success rate -->
+                        <div class="mt-3 w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                            <div class="bg-primary-600 h-2 rounded-full transition-all duration-300" style="width: ${percentStr}"></div>
+                        </div>
+                    </div>
+                `;
+
+                listContainer.insertAdjacentHTML('beforeend', cardHtml);
+            });
+
+            if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+        }
+
+        function renderHabitsTable(filteredData) {
+            const tableBody = document.getElementById('habits-table-body');
+            const tableHead = document.getElementById('habits-table-head');
+            if (!tableBody || !tableHead) return;
+            tableBody.innerHTML = '';
+
+            if (filteredData.length === 0) {
+                const rowCountEl = document.getElementById('rendered-rows-count');
+                if (rowCountEl) rowCountEl.textContent = 'Отображено записей: 0';
+                return;
+            }
+
+            if (currentGroupingMode === 'day') {
+                tableHead.innerHTML = `
+                    <tr class="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                        <th class="py-3 px-6">Дата</th>
+                        <th class="py-3 px-6 text-center">Процент успеха</th>
+                        <th class="py-3 px-6 text-center">Динамика</th>
+                        <th class="py-3 px-6 text-right">Результат дня</th>
+                    </tr>
+                `;
+            } else {
+                tableHead.innerHTML = `
+                    <tr class="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                        <th class="py-3 px-6">Период</th>
+                        <th class="py-3 px-6 text-center">Средний успех</th>
+                        <th class="py-3 px-6 text-center">Динамика</th>
+                        <th class="py-3 px-6 text-right">Доля успешных дней</th>
+                    </tr>
+                `;
+            }
+
+            const displayList = getGroupedData(filteredData, currentGroupingMode);
+
+            const displayData = [...displayList];
+            displayData.sort((a, b) => {
+                const dateA = a.dateForSorting || a.date;
+                const dateB = b.dateForSorting || b.date;
+
+                if (currentSortMode === 'date-desc') {
+                    return dateB - dateA;
+                } else if (currentSortMode === 'date-asc') {
+                    return dateA - dateB;
+                } else if (currentSortMode === 'val-desc') {
+                    return b.value - a.value;
+                } else if (currentSortMode === 'val-asc') {
+                    return a.value - b.value;
+                }
+                return 0;
+            });
+
+            const showMoreBtn = document.getElementById('chronology-show-more-container');
+            let dataToRender = displayData;
+
+            if (currentGroupingMode === 'day') {
+                if (!showAllChronology && displayData.length > 30) {
+                    dataToRender = displayData.slice(0, 30);
+                    if (showMoreBtn) showMoreBtn.classList.remove('hidden');
+                } else {
+                    if (showMoreBtn) showMoreBtn.classList.add('hidden');
+                }
+            } else {
+                if (showMoreBtn) showMoreBtn.classList.add('hidden');
+            }
+
+            const rowCountEl = document.getElementById('rendered-rows-count');
+            if (rowCountEl) {
+                rowCountEl.textContent = currentGroupingMode === 'day' && !showAllChronology && displayData.length > 30
+                    ? `Показаны последние 30 записей из ${displayData.length}`
+                    : `Отображено записей: ${displayData.length}`;
+            }
+
+            dataToRender.forEach(item => {
+                let displayLabel, displayPercent, percentDifference, isSuccessStatus, ratioPercent;
+                
+                if (currentGroupingMode === 'day') {
+                    displayLabel = formatDateToString(item.date);
+                    displayPercent = (item.value * 100).toFixed(2) + '%';
+                    percentDifference = item.difference * 100;
+                    isSuccessStatus = item.status === 'Успех';
+                } else {
+                    displayLabel = item.label;
+                    displayPercent = (item.value * 100).toFixed(2) + '%';
+                    percentDifference = item.difference * 100;
+                    ratioPercent = (item.successRate * 100).toFixed(0) + '%';
+                }
+                
+                let diffText = '0.00%';
+                let diffColor = 'text-slate-400';
+                let diffIcon = '';
+
+                if (percentDifference > 0) {
+                    diffText = `+${percentDifference.toFixed(2)}%`;
+                    diffColor = 'text-emerald-600 font-semibold';
+                    diffIcon = '↗';
+                } else if (percentDifference < 0) {
+                    diffText = `${percentDifference.toFixed(2)}%`;
+                    diffColor = 'text-rose-600 font-semibold';
+                    diffIcon = '↘';
+                }
+
+                let badgeClass = '';
+                let statusText = '';
+                let statusIcon = '';
+
+                if (currentGroupingMode === 'day') {
+                    if (isSuccessStatus) {
+                        badgeClass = 'bg-emerald-100 text-emerald-800 border border-emerald-200/50';
+                        statusText = 'Успех';
+                        statusIcon = 'check-circle-2';
+                    } else {
+                        badgeClass = 'bg-rose-100 text-rose-800 border border-rose-200/50';
+                        statusText = 'Провал';
+                        statusIcon = 'x-circle';
+                    }
+                } else if (currentGroupingMode === 'week') {
+                    const succ = item.successDays;
+                    if (succ >= 5) {
+                        badgeClass = 'bg-emerald-100 text-emerald-800 border border-emerald-200/50';
+                    } else if (succ > 2) { 
+                        badgeClass = 'bg-amber-100/70 text-amber-800 border border-amber-200/50';
+                    } else { 
+                        badgeClass = 'bg-rose-100 text-rose-800 border border-rose-200/50';
+                    }
+                    statusText = `${item.successDays} из ${item.totalDays} (${ratioPercent})`;
+                    statusIcon = 'check-circle-2';
+                } else if (currentGroupingMode === 'month') {
+                    const rate = item.successRate;
+                    if (rate > 0.70) {
+                        badgeClass = 'bg-emerald-100 text-emerald-800 border border-emerald-200/50';
+                    } else if (rate >= 0.55) { 
+                        badgeClass = 'bg-amber-100/70 text-amber-800 border border-amber-200/50';
+                    } else { 
+                        badgeClass = 'bg-rose-100 text-rose-800 border border-rose-200/50';
+                    }
+                    statusText = `${item.successDays} из ${item.totalDays} (${ratioPercent})`;
+                    statusIcon = 'check-circle-2';
+                } else if (currentGroupingMode === 'quarter') {
+                    const rate = item.successRate;
+                    if (rate > 0.69) {
+                        badgeClass = 'bg-emerald-100 text-emerald-800 border border-emerald-200/50';
+                    } else if (rate >= 0.49) {
+                        badgeClass = 'bg-amber-100/70 text-amber-800 border border-amber-200/50';
+                    } else {
+                        badgeClass = 'bg-rose-100 text-rose-800 border border-rose-200/50';
+                    }
+                    statusText = `${item.successDays} из ${item.totalDays} (${ratioPercent})`;
+                    statusIcon = 'check-circle-2';
+                } else if (currentGroupingMode === 'year') {
+                    const rate = item.successRate;
+                    if (rate >= 0.68) {
+                        badgeClass = 'bg-emerald-100 text-emerald-800 border border-emerald-200/50';
+                    } else if (rate >= 0.50) {
+                        badgeClass = 'bg-amber-100/70 text-amber-800 border border-amber-200/50';
+                    } else {
+                        badgeClass = 'bg-rose-100 text-rose-800 border border-rose-200/50';
+                    }
+                    statusText = `${item.successDays} из ${item.totalDays} (${ratioPercent})`;
+                    statusIcon = 'check-circle-2';
+                }
+
+                const tableRow = `
+                    <tr class="hover:bg-slate-50/50 transition-colors">
+                        <td class="py-4 px-6 font-semibold text-slate-950">${displayLabel}</td>
+                        <td class="py-4 px-6 text-center font-mono text-slate-700">${displayPercent}</td>
+                        <td class="py-4 px-6 text-center">
+                            <span class="${diffColor} inline-flex items-center gap-1 font-mono">
+                                ${diffIcon} ${diffText}
+                            </span>
+                        </td>
+                        <td class="py-4 px-6 text-right">
+                            <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold ${badgeClass}">
+                                <i data-lucide="${statusIcon}" class="w-3.5 h-3.5"></i> ${statusText}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+
+                tableBody.insertAdjacentHTML('beforeend', tableRow);
+            });
+
+            if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+        }
+
+        function renderStreaksTable(filteredData) {
+            const successListContainer = document.getElementById('success-streaks-list');
+            const failureListContainer = document.getElementById('failure-streaks-list');
+            if (!successListContainer || !failureListContainer) return;
+            
+            successListContainer.innerHTML = '';
+            failureListContainer.innerHTML = '';
+
+            const limitInput = document.getElementById('recordsLimitInput');
+            const limit = limitInput ? parseInt(limitInput.value, 10) || 10 : 10;
+
+            const { successes, failures } = getStreakLists(filteredData);
+
+            if (successes.length === 0) {
+                successListContainer.innerHTML = `
+                    <div class="text-center py-10 text-slate-400 text-xs">
+                        Нет непрерывных серий успехов за этот период
+                    </div>
+                `;
+            } else {
+                successes.slice(0, limit).forEach((streak, idx) => {
+                    let isTop = idx === 0;
+                    let badgeBg = isTop ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200';
+                    let badgeText = isTop ? '🔥 Рекорд' : `#${idx + 1}`;
+                    
+                    let rowHtml = `
+                        <div class="flex items-center justify-between p-3.5 bg-white rounded-xl border border-slate-100 shadow-sm transition hover:scale-[1.01]">
+                            <div class="flex items-center gap-3">
+                                <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold border ${badgeBg} select-none">${badgeText}</span>
+                                <div>
+                                    <p class="font-bold text-slate-950 text-xs">${streak.count} ${getNounDays(streak.count)} подряд</p>
+                                    <p class="text-[10px] text-slate-400 font-medium">${formatDateToString(streak.start)} — ${formatDateToString(streak.end)}</p>
+                                </div>
+                            </div>
+                            <div class="text-right flex flex-col items-end">
+                                <span class="text-[11px] font-bold text-emerald-600">Рост</span>
+                                <span class="text-[9px] text-slate-400 mt-0.5 font-medium block">${getDaysAgoText(streak.end)}</span>
+                            </div>
+                        </div>
+                    `;
+                    successListContainer.insertAdjacentHTML('beforeend', rowHtml);
+                });
+            }
+
+            if (failures.length === 0) {
+                failureListContainer.innerHTML = `
+                    <div class="text-center py-10 text-slate-400 text-xs">
+                        Нет непрерывных серий провалов за этот период
+                    </div>
+                `;
+            } else {
+                failures.slice(0, limit).forEach((streak, idx) => {
+                    let isTop = idx === 0;
+                    let badgeBg = isTop ? 'bg-slate-200 text-slate-800 border-slate-300' : 'bg-rose-100 text-rose-800 border-rose-200';
+                    let badgeText = isTop ? '🥶 Пик спада' : `#${idx + 1}`;
+
+                    let rowHtml = `
+                        <div class="flex items-center justify-between p-3.5 bg-white rounded-xl border border-slate-100 shadow-sm transition hover:scale-[1.01]">
+                            <div class="flex items-center gap-3">
+                                <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold border ${badgeBg} select-none">${badgeText}</span>
+                                <div>
+                                    <p class="font-bold text-slate-950 text-xs">${streak.count} ${getNounDays(streak.count)} подряд</p>
+                                    <p class="text-[10px] text-slate-400 font-medium">${formatDateToString(streak.start)} — ${formatDateToString(streak.end)}</p>
+                                </div>
+                            </div>
+                            <div class="text-right flex flex-col items-end">
+                                <span class="text-[11px] font-bold text-rose-600">Спад</span>
+                                <span class="text-[9px] text-slate-400 mt-0.5 font-medium block">${getDaysAgoText(streak.end)}</span>
+                            </div>
+                        </div>
+                    `;
+                    failureListContainer.insertAdjacentHTML('beforeend', rowHtml);
+                });
+            }
+
+            if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+        }
+
+        function getStreakLists(data) {
+            if (data.length === 0) return { successes: [], failures: [] };
+            let sorted = [...data].sort((a, b) => a.date - b.date);
+
+            let successes = [];
+            let failures = [];
+
+            let currentStreak = {
+                type: sorted[0].status,
+                start: sorted[0].date,
+                end: sorted[0].date,
+                count: 1
+            };
+
+            for (let i = 1; i < sorted.length; i++) {
+                let prev = sorted[i - 1];
+                let curr = sorted[i];
+
+                let diffTime = Math.abs(curr.date - prev.date);
+                let diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+                if (curr.status === prev.status && diffDays <= 1) {
+                    currentStreak.end = curr.date;
+                    currentStreak.count++;
+                } else {
+                    if (currentStreak.type === 'Успех') {
+                        successes.push({...currentStreak});
+                    } else {
+                        failures.push({...currentStreak});
+                    }
+                    currentStreak = {
+                        type: curr.status,
+                        start: curr.date,
+                        end: curr.date,
+                        count: 1
+                    };
+                }
+            }
+            
+            if (currentStreak.type === 'Успех') {
+                successes.push({...currentStreak});
+            } else {
+                failures.push({...currentStreak});
+            }
+
+            const sortStreaksHelper = (a, b) => {
+                if (b.count !== a.count) return b.count - a.count;
+                return b.end - a.end;
+            };
+
+            successes.sort(sortStreaksHelper);
+            failures.sort(sortStreaksHelper);
+
+            return { successes, failures };
+        }
+
+        function renderTrendsChart() {
+            const filteredData = getFilteredData();
+            if (filteredData.length === 0) return;
+
+            const canvas = document.getElementById('trendsChart');
+            if (!canvas) return;
+
+            // Проверяем, отфильтровано ли начало истории (есть ли данные до начала выбранного периода)
+            const chronAll = [...habitsData].sort((a, b) => a.date - b.date);
+            const chronFiltered = [...filteredData].sort((a, b) => a.date - b.date);
+
+            const hasPriorHistory = chronAll.length > 0 && chronFiltered.length > 0 && chronFiltered[0].date > chronAll[0].date;
+            
+            const fromStartContainer = document.getElementById('chart-from-start-container');
+            if (fromStartContainer) {
+                if (hasPriorHistory) {
+                    fromStartContainer.classList.remove('hidden');
+                } else {
+                    fromStartContainer.classList.add('hidden');
+                }
+            }
+
+            const fromStartCheckbox = document.getElementById('chartFromStartCheckbox');
+            const useFromStart = hasPriorHistory && fromStartCheckbox && fromStartCheckbox.checked;
+
+            let priorSuccessDays = 0;
+            let priorTotalDays = 0;
+
+            if (useFromStart) {
+                const firstFilteredDate = chronFiltered[0].date;
+                const priorItems = chronAll.filter(item => item.date < firstFilteredDate);
+                priorTotalDays = priorItems.length;
+                priorSuccessDays = priorItems.filter(item => item.status === 'Успех').length;
+            }
+
+            const groupedList = getGroupedData(filteredData, chartGroupingMode);
+
+            const labels = groupedList.map(item => {
+                if (chartGroupingMode === 'day') {
+                    return formatDateToString(item.date);
+                } else {
+                    return item.label;
+                }
+            });
+
+            let runningSuccesses = priorSuccessDays;
+            let runningTotalDays = priorTotalDays;
+
+            const successRates = groupedList.map(item => {
+                runningTotalDays += item.totalDays;
+                runningSuccesses += item.successDays;
+                const rate = runningTotalDays > 0 ? (runningSuccesses * 100 / runningTotalDays) : 0;
+                return rate.toFixed(2);
+            });
+
+            const maxVal = Math.max(...successRates.map(Number));
+            
+            const displayTotalDays = useFromStart ? (priorTotalDays + filteredData.length) : filteredData.length;
+            const displaySuccessDaysCount = useFromStart ? (priorSuccessDays + filteredData.filter(item => item.status === 'Успех').length) : filteredData.filter(item => item.status === 'Успех').length;
+            const overallSuccessPercentage = displayTotalDays > 0 ? (displaySuccessDaysCount * 100 / displayTotalDays) : 0;
+
+            const maxEl = document.getElementById('chart-stat-max');
+            const avgEl = document.getElementById('chart-stat-avg');
+            const successDaysEl = document.getElementById('chart-stat-success-days');
+
+            if (maxEl) maxEl.textContent = maxVal.toFixed(2) + '%';
+            if (avgEl) avgEl.textContent = overallSuccessPercentage.toFixed(2) + '%';
+            if (successDaysEl) successDaysEl.textContent = displaySuccessDaysCount;
+
+            const datasetLabel = useFromStart 
+                ? 'Общий процент успеха (накопительно с 1-го дня истории)' 
+                : 'Общий процент успеха (%) с начала периода';
+
+            if (trendChartInstance) {
+                trendChartInstance.destroy();
+            }
+
+            const gridColor = 'rgba(226, 232, 240, 0.8)';
+            const textColor = '#64748b';
+
+            trendChartInstance = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: datasetLabel,
+                            data: successRates,
+                            borderColor: '#8b5cf6',
+                            backgroundColor: 'rgba(139, 92, 246, 0.08)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.35,
+                            pointBackgroundColor: '#8b5cf6',
+                            pointHoverRadius: 6,
+                            pointRadius: chartGroupingMode === 'day' && labels.length > 40 ? 0 : 3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: textColor,
+                                font: {
+                                    family: 'Inter',
+                                    size: 11,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#ffffff',
+                            titleColor: '#0f172a',
+                            bodyColor: '#334155',
+                            borderColor: '#e2e8f0',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    return ` ${context.dataset.label}: ${context.raw}%`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: gridColor
+                            },
+                            ticks: {
+                                color: textColor,
+                                font: {
+                                    family: 'Inter',
+                                    size: 10
+                                }
+                            }
+                        },
+                        y: {
+                            min: 0,
+                            max: 100,
+                            grid: {
+                                color: gridColor
+                            },
+                            ticks: {
+                                color: textColor,
+                                callback: function(value) {
+                                    return value + '%';
+                                },
+                                font: {
+                                    family: 'Inter',
+                                    size: 10
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        window.onload = function() {
+            if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                lucide.createIcons();
+            }
+            
+            const dropzone = document.getElementById('dropzone');
+            const fileInput = document.getElementById('excelFile');
+            const emptyFileInput = document.getElementById('emptyStateFile');
+            
+            if (fileInput) {
+                fileInput.addEventListener('change', handleFileSelect, false);
+            }
+
+            if (emptyFileInput) {
+                emptyFileInput.addEventListener('change', handleFileSelect, false);
+            }
+
+            const emptyStateEl = document.getElementById('empty-state');
+            if (emptyStateEl) {
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    emptyStateEl.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        emptyStateEl.classList.add('border-primary-500', 'bg-primary-50/40');
+                    }, false);
+                });
+
+                ['dragleave', 'drop'].forEach(eventName => {
+                    emptyStateEl.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        emptyStateEl.classList.remove('border-primary-500', 'bg-primary-50/40');
+                    }, false);
+                });
+            }
+
+            if (dropzone) {
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    dropzone.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        dropzone.classList.add('border-primary-500', 'bg-primary-50/50');
+                    }, false);
+                });
+
+                ['dragleave', 'drop'].forEach(eventName => {
+                    dropzone.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        dropzone.classList.remove('border-primary-500', 'bg-primary-50/50');
+                    }, false);
+                });
+
+                dropzone.addEventListener('drop', (e) => {
+                    const dt = e.dataTransfer;
+                    const files = dt ? dt.files : null;
+                    if (files && files.length) {
+                        if (fileInput) fileInput.files = files;
+                        handleFileSelect({ target: { files: files } });
+                    }
+                }, false);
+            }
+
+            window.addEventListener('dragover', (e) => { e.preventDefault(); }, false);
+            window.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const dt = e.dataTransfer;
+                const files = dt ? dt.files : null;
+                if (files && files.length) {
+                    handleFileSelect({ target: { files: files } });
+                }
+            }, false);
+        }
+    </script>
+</body>
+</html>
