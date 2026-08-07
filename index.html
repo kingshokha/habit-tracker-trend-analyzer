@@ -54,30 +54,17 @@
             background: #cbd5e1;
             border-radius: 4px;
         }
-        @keyframes borderBeamRotate {
+        @keyframes streakPerimeterTracer {
             0% {
-                transform: rotate(0deg);
+                stroke-dashoffset: 0;
             }
             100% {
-                transform: rotate(360deg);
+                stroke-dashoffset: -100;
             }
         }
-        .recent-streak-tracer-wrapper {
-            position: relative;
-            padding: 1.5px;
-            border-radius: 0.75rem;
-            overflow: hidden;
-            background-color: #cbd5e1;
-        }
-        .recent-streak-tracer-beam {
-            position: absolute;
-            top: -100%;
-            left: -100%;
-            width: 300%;
-            height: 300%;
-            background: conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(16, 185, 129, 0.25) 320deg, #10b981 350deg, #6ee7b7 360deg);
-            animation: borderBeamRotate 2.8s linear infinite;
-            pointer-events: none;
+        .streak-border-svg-beam {
+            animation: streakPerimeterTracer 3.2s linear infinite;
+            filter: drop-shadow(0 0 3px #10b981) drop-shadow(0 0 6px rgba(16, 185, 129, 0.75));
         }
     </style>
 </head>
@@ -2026,20 +2013,22 @@
 
                     if (isRecent) {
                         rowHtml = `
-                            <div class="recent-streak-tracer-wrapper shadow-sm transition hover:scale-[1.01]">
-                                <div class="recent-streak-tracer-beam"></div>
-                                <div class="relative z-10 flex items-center justify-between p-3.5 bg-white rounded-[10.5px]">
-                                    <div class="flex items-center gap-3">
-                                        <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold border ${badgeBg} select-none">${badgeText}</span>
-                                        <div>
-                                            <p class="font-bold text-slate-950 text-xs flex items-center gap-1.5">${streak.count} ${getNounDays(streak.count)} подряд ${recentBadge}</p>
-                                            <p class="text-[10px] text-slate-400 font-medium">${formatDateToString(streak.start)} — ${formatDateToString(streak.end)}</p>
-                                        </div>
+                            <div class="relative flex items-center justify-between p-3.5 bg-white rounded-xl border border-slate-200 shadow-sm transition hover:scale-[1.01] overflow-hidden group">
+                                <svg class="absolute inset-0 w-full h-full pointer-events-none rounded-xl z-20 overflow-visible">
+                                    <rect x="0.75" y="0.75" width="calc(100% - 1.5px)" height="calc(100% - 1.5px)" rx="11.25" ry="11.25"
+                                          fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" pathLength="100"
+                                          stroke-dasharray="16 84" class="streak-border-svg-beam" />
+                                </svg>
+                                <div class="flex items-center gap-3 relative z-10">
+                                    <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold border ${badgeBg} select-none">${badgeText}</span>
+                                    <div>
+                                        <p class="font-bold text-slate-950 text-xs flex items-center gap-1.5">${streak.count} ${getNounDays(streak.count)} подряд ${recentBadge}</p>
+                                        <p class="text-[10px] text-slate-400 font-medium">${formatDateToString(streak.start)} — ${formatDateToString(streak.end)}</p>
                                     </div>
-                                    <div class="text-right flex flex-col items-end">
-                                        <span class="text-[11px] font-bold text-emerald-600">Рост</span>
-                                        <span class="text-[9px] text-slate-400 mt-0.5 font-medium block">${getDaysAgoText(streak.end)}</span>
-                                    </div>
+                                </div>
+                                <div class="text-right flex flex-col items-end relative z-10">
+                                    <span class="text-[11px] font-bold text-emerald-600">Рост</span>
+                                    <span class="text-[9px] text-slate-400 mt-0.5 font-medium block">${getDaysAgoText(streak.end)}</span>
                                 </div>
                             </div>
                         `;
