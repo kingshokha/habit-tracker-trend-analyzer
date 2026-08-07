@@ -54,18 +54,6 @@
             background: #cbd5e1;
             border-radius: 4px;
         }
-        @keyframes streakPerimeterTracer {
-            0% {
-                stroke-dashoffset: 0;
-            }
-            100% {
-                stroke-dashoffset: -100;
-            }
-        }
-        .streak-border-svg-beam {
-            animation: streakPerimeterTracer 8.5s linear infinite;
-            filter: drop-shadow(0 0 2px #10b981) drop-shadow(0 0 4px rgba(16, 185, 129, 0.45));
-        }
     </style>
 </head>
 <body class="h-full text-slate-800 transition-colors duration-200">
@@ -1990,76 +1978,26 @@
                     </div>
                 `;
             } else {
-                const referenceDate = (habitsData.length > 0) ? habitsData[habitsData.length - 1].date : new Date();
-                const refMid = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
-                const nowMid = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
-
                 successes.slice(0, limit).forEach((streak, idx) => {
                     let isTop = idx === 0;
                     let badgeBg = isTop ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200';
                     let badgeText = isTop ? '🔥 Рекорд' : `#${idx + 1}`;
-
-                    const endMid = new Date(streak.end.getFullYear(), streak.end.getMonth(), streak.end.getDate());
-                    const daysAgoFromNow = Math.floor((nowMid - endMid) / (1000 * 60 * 60 * 24));
-                    const daysAgoFromLatest = Math.floor((refMid - endMid) / (1000 * 60 * 60 * 24));
                     
-                    const isRecent = (daysAgoFromNow >= 0 && daysAgoFromNow <= 30) || (daysAgoFromLatest >= 0 && daysAgoFromLatest <= 30);
-
-                    const recentBadge = isRecent 
-                        ? `<span class="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full animate-pulse">⚡ Свежий рекорд</span>` 
-                        : '';
-                    
-                    let rowHtml = '';
-
-                    if (isRecent) {
-                        rowHtml = `
-                            <div class="relative flex items-center justify-between p-3.5 bg-white rounded-xl border border-slate-200/90 shadow-sm transition hover:scale-[1.01] overflow-hidden group">
-                                <svg class="absolute inset-0 w-full h-full pointer-events-none rounded-xl z-20 overflow-visible">
-                                    <!-- Tail (fading green background) -->
-                                    <rect x="0.75" y="0.75" width="calc(100% - 1.5px)" height="calc(100% - 1.5px)" rx="11.25" ry="11.25"
-                                          fill="none" stroke="#10b981" stroke-width="1.2" stroke-linecap="round" pathLength="100"
-                                          stroke-dasharray="18 82" class="streak-border-svg-beam opacity-25" />
-                                    
-                                    <!-- Body (medium green) -->
-                                    <rect x="0.75" y="0.75" width="calc(100% - 1.5px)" height="calc(100% - 1.5px)" rx="11.25" ry="11.25"
-                                          fill="none" stroke="#10b981" stroke-width="1.2" stroke-linecap="round" pathLength="100"
-                                          stroke-dasharray="10 90" stroke-dashoffset="-4" class="streak-border-svg-beam opacity-65" />
-                                          
-                                    <!-- Bright leading dot head -->
-                                    <rect x="0.75" y="0.75" width="calc(100% - 1.5px)" height="calc(100% - 1.5px)" rx="11.25" ry="11.25"
-                                          fill="none" stroke="#a7f3d0" stroke-width="1.4" stroke-linecap="round" pathLength="100"
-                                          stroke-dasharray="3 97" stroke-dashoffset="-12" class="streak-border-svg-beam opacity-100" />
-                                </svg>
-                                <div class="flex items-center gap-3 relative z-10">
-                                    <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold border ${badgeBg} select-none">${badgeText}</span>
-                                    <div>
-                                        <p class="font-bold text-slate-950 text-xs flex items-center gap-1.5">${streak.count} ${getNounDays(streak.count)} подряд ${recentBadge}</p>
-                                        <p class="text-[10px] text-slate-400 font-medium">${formatDateToString(streak.start)} — ${formatDateToString(streak.end)}</p>
-                                    </div>
-                                </div>
-                                <div class="text-right flex flex-col items-end relative z-10">
-                                    <span class="text-[11px] font-bold text-emerald-600">Рост</span>
-                                    <span class="text-[9px] text-slate-400 mt-0.5 font-medium block">${getDaysAgoText(streak.end)}</span>
+                    let rowHtml = `
+                        <div class="flex items-center justify-between p-3.5 bg-white rounded-xl border border-slate-100 shadow-sm transition hover:scale-[1.01]">
+                            <div class="flex items-center gap-3">
+                                <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold border ${badgeBg} select-none">${badgeText}</span>
+                                <div>
+                                    <p class="font-bold text-slate-950 text-xs">${streak.count} ${getNounDays(streak.count)} подряд</p>
+                                    <p class="text-[10px] text-slate-400 font-medium">${formatDateToString(streak.start)} — ${formatDateToString(streak.end)}</p>
                                 </div>
                             </div>
-                        `;
-                    } else {
-                        rowHtml = `
-                            <div class="flex items-center justify-between p-3.5 bg-white rounded-xl border border-slate-100 shadow-sm transition hover:scale-[1.01]">
-                                <div class="flex items-center gap-3">
-                                    <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold border ${badgeBg} select-none">${badgeText}</span>
-                                    <div>
-                                        <p class="font-bold text-slate-950 text-xs">${streak.count} ${getNounDays(streak.count)} подряд</p>
-                                        <p class="text-[10px] text-slate-400 font-medium">${formatDateToString(streak.start)} — ${formatDateToString(streak.end)}</p>
-                                    </div>
-                                </div>
-                                <div class="text-right flex flex-col items-end">
-                                    <span class="text-[11px] font-bold text-emerald-600">Рост</span>
-                                    <span class="text-[9px] text-slate-400 mt-0.5 font-medium block">${getDaysAgoText(streak.end)}</span>
-                                </div>
+                            <div class="text-right flex flex-col items-end">
+                                <span class="text-[11px] font-bold text-emerald-600">Рост</span>
+                                <span class="text-[9px] text-slate-400 mt-0.5 font-medium block">${getDaysAgoText(streak.end)}</span>
                             </div>
-                        `;
-                    }
+                        </div>
+                    `;
                     successListContainer.insertAdjacentHTML('beforeend', rowHtml);
                 });
             }
