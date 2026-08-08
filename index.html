@@ -952,9 +952,13 @@
                 }));
             }
 
-            const groups = {};
+            if (habitsData.length === 0) return [];
 
-            filteredData.forEach(item => {
+            // 1. Группируем всю историю habitsData для расчёта честной динамики
+            const allGroups = {};
+            const chronAll = [...habitsData].sort((a, b) => a.date - b.date);
+
+            chronAll.forEach(item => {
                 let key, label;
                 const d = item.date;
                 const year = d.getFullYear();
@@ -985,21 +989,21 @@
                     label = `${year} год`;
                 }
 
-                if (!groups[key]) {
-                    groups[key] = {
+                if (!allGroups[key]) {
+                    allGroups[key] = {
                         key: key,
                         label: label,
                         dateForSorting: new Date(d),
                         items: []
                     };
                 }
-                groups[key].items.push(item);
+                allGroups[key].items.push(item);
             });
 
-            const groupedList = Object.values(groups).sort((a, b) => a.dateForSorting - b.dateForSorting);
+            const allGroupedList = Object.values(allGroups).sort((a, b) => a.dateForSorting - b.dateForSorting);
 
-            for (let i = 0; i < groupedList.length; i++) {
-                const group = groupedList[i];
+            for (let i = 0; i < allGroupedList.length; i++) {
+                const group = allGroupedList[i];
                 const totalDays = group.items.length;
                 const successDays = group.items.filter(item => item.status === 'Успех').length;
                 const totalVal = group.items.reduce((sum, item) => sum + item.value, 0);
@@ -1010,7 +1014,7 @@
                 const isFirstGroup = (i === 0);
 
                 if (i > 0) {
-                    const prevGroup = groupedList[i - 1];
+                    const prevGroup = allGroupedList[i - 1];
                     const prevTotalDays = prevGroup.items.length;
                     const prevTotalVal = prevGroup.items.reduce((sum, item) => sum + item.value, 0);
                     const prevAvgValue = prevTotalDays > 0 ? (prevTotalVal / prevTotalDays) : 0;
@@ -1019,7 +1023,7 @@
                     const prevSuccessDays = prevGroup.items.filter(item => item.status === 'Успех').length;
                     successDaysDiff = successDays - prevSuccessDays;
                 } else {
-                    difference = avgValue;
+                    difference = 0;
                     successDaysDiff = 0;
                 }
 
@@ -1027,12 +1031,42 @@
                 group.difference = difference;
                 group.successDaysDiff = successDaysDiff;
                 group.isFirstGroup = isFirstGroup;
+                group.isLatestPeriod = (i === allGroupedList.length - 1);
                 group.totalDays = totalDays;
                 group.successDays = successDays;
                 group.successRate = totalDays > 0 ? (successDays / totalDays) : 0;
             }
 
-            return groupedList;
+            // 2. Отбираем ключи, попавшие под текущий фильтр даты/года
+            const filteredKeys = new Set();
+            filteredData.forEach(item => {
+                const d = item.date;
+                const year = d.getFullYear();
+                let key;
+                if (mode === 'week') {
+                    const target = new Date(d.valueOf());
+                    const dayNr = (d.getDay() + 6) % 7;
+                    target.setDate(target.getDate() - dayNr + 3);
+                    const firstThursday = target.valueOf();
+                    target.setMonth(0, 1);
+                    if (target.getDay() !== 4) {
+                        target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+                    }
+                    const weekNum = 1 + Math.ceil((firstThursday - target) / 604800000);
+                    key = `${year}-W${String(weekNum).padStart(2, '0')}`;
+                } else if (mode === 'month') {
+                    const month = d.getMonth() + 1;
+                    key = `${year}-${String(month).padStart(2, '0')}`;
+                } else if (mode === 'quarter') {
+                    const quarter = Math.floor(d.getMonth() / 3) + 1;
+                    key = `${year}-Q${quarter}`;
+                } else if (mode === 'year') {
+                    key = `${year}`;
+                }
+                filteredKeys.add(key);
+            });
+
+            return allGroupedList.filter(g => filteredKeys.has(g.key));
         }
 
         function renderDashboard() {
@@ -1709,7 +1743,7 @@
             sortedMonths.forEach((mObj, index) => {
                 const monthName = new Date(mObj.year, mObj.month, 1).toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
                 const formattedName = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-                const isCurrent = mObj.year === realCurrentYear && mObj.month === realCurrentMonth;
+                const isCurrent = mObj.month === realCurrentMonth;
 
                 const percentStr = (mObj.activeSuccessRate * 100).toFixed(2) + '%';
                 const successCount = mObj.activeSuccessDays;
@@ -1907,6 +1941,9 @@
                     let succDiffHtml = '';
                     if (item.isFirstGroup) {
                         succDiffHtml = `<span class="text-slate-400 font-bold block text-xs">—</span>`;
+                    } else if (item.isLatestPeriod) {
+                        // Для самой свежей записи в истории скрываем динамику по количеству успехов
+                        succDiffHtml = `<span class="text-slate-400 font-medium block text-xs">—</span>`;
                     } else {
                         const sDiff = item.successDaysDiff;
                         if (sDiff > 0) {
