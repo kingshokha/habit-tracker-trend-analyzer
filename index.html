@@ -152,6 +152,10 @@
                                 <option value="date-asc">Сначала старые</option>
                                 <option value="val-desc">Проценты: по убыванию</option>
                                 <option value="val-asc">Проценты: по возрастанию</option>
+                                <option value="succ-days-desc">Количество успехов: по убыванию</option>
+                                <option value="succ-days-asc">Количество успехов: по возрастанию</option>
+                                <option value="succ-diff-desc">Динамика успехов: от лучших</option>
+                                <option value="succ-diff-asc">Динамика успехов: от худших</option>
                             </select>
                             <div class="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none text-slate-400">
                                 <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
@@ -1201,6 +1205,25 @@
             renderDashboard();
         }
 
+        function toggleHabitTableSort(col) {
+            if (col === 'date') {
+                currentSortMode = (currentSortMode === 'date-desc') ? 'date-asc' : 'date-desc';
+            } else if (col === 'val') {
+                currentSortMode = (currentSortMode === 'val-desc') ? 'val-asc' : 'val-desc';
+            } else if (col === 'diff') {
+                currentSortMode = (currentSortMode === 'succ-diff-desc') ? 'succ-diff-asc' : 'succ-diff-desc';
+            } else if (col === 'succDays') {
+                currentSortMode = (currentSortMode === 'succ-days-desc') ? 'succ-days-asc' : 'succ-days-desc';
+            }
+            
+            const selector = document.getElementById('sortSelector');
+            if (selector) {
+                selector.value = currentSortMode;
+            }
+
+            renderDashboard();
+        }
+
         function setGroupingMode(mode) {
             currentGroupingMode = mode;
             showAllChronology = false; 
@@ -1837,22 +1860,82 @@
                 return;
             }
 
+            const getSortIcon = (col) => {
+                if (col === 'date') {
+                    if (currentSortMode === 'date-desc') return '<span class="text-primary-600 font-bold">↓</span>';
+                    if (currentSortMode === 'date-asc') return '<span class="text-primary-600 font-bold">↑</span>';
+                }
+                if (col === 'val') {
+                    if (currentSortMode === 'val-desc') return '<span class="text-primary-600 font-bold">↓</span>';
+                    if (currentSortMode === 'val-asc') return '<span class="text-primary-600 font-bold">↑</span>';
+                }
+                if (col === 'diff') {
+                    if (currentSortMode === 'succ-diff-desc') return '<span class="text-primary-600 font-bold">↓</span>';
+                    if (currentSortMode === 'succ-diff-asc') return '<span class="text-primary-600 font-bold">↑</span>';
+                }
+                if (col === 'succDays') {
+                    if (currentSortMode === 'succ-days-desc') return '<span class="text-primary-600 font-bold">↓</span>';
+                    if (currentSortMode === 'succ-days-asc') return '<span class="text-primary-600 font-bold">↑</span>';
+                }
+                return '<span class="text-slate-300 opacity-40 group-hover:opacity-100 transition-opacity">↕</span>';
+            };
+
             if (currentGroupingMode === 'day') {
                 tableHead.innerHTML = `
-                    <tr class="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                        <th class="py-3 px-6">Дата</th>
-                        <th class="py-3 px-6 text-center">Процент успеха</th>
-                        <th class="py-3 px-6 text-center">Динамика</th>
-                        <th class="py-3 px-6 text-right">Результат дня</th>
+                    <tr class="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 select-none">
+                        <th onclick="toggleHabitTableSort('date')" class="py-3 px-6 cursor-pointer hover:bg-slate-100 hover:text-slate-700 transition group" title="Сортировка по дате">
+                            <div class="flex items-center gap-1">
+                                <span>Дата</span>
+                                ${getSortIcon('date')}
+                            </div>
+                        </th>
+                        <th onclick="toggleHabitTableSort('val')" class="py-3 px-6 text-center cursor-pointer hover:bg-slate-100 hover:text-slate-700 transition group" title="Сортировка по проценту успеха">
+                            <div class="flex items-center justify-center gap-1">
+                                <span>Процент успеха</span>
+                                ${getSortIcon('val')}
+                            </div>
+                        </th>
+                        <th onclick="toggleHabitTableSort('diff')" class="py-3 px-6 text-center cursor-pointer hover:bg-slate-100 hover:text-slate-700 transition group" title="Сортировка по динамике">
+                            <div class="flex items-center justify-center gap-1">
+                                <span>Динамика</span>
+                                ${getSortIcon('diff')}
+                            </div>
+                        </th>
+                        <th onclick="toggleHabitTableSort('succDays')" class="py-3 px-6 text-right cursor-pointer hover:bg-slate-100 hover:text-slate-700 transition group" title="Сортировка по результату">
+                            <div class="flex items-center justify-end gap-1">
+                                <span>Результат дня</span>
+                                ${getSortIcon('succDays')}
+                            </div>
+                        </th>
                     </tr>
                 `;
             } else {
                 tableHead.innerHTML = `
-                    <tr class="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                        <th class="py-3 px-6">Период</th>
-                        <th class="py-3 px-6 text-center">Средний успех</th>
-                        <th class="py-3 px-6 text-center">Динамика</th>
-                        <th class="py-3 px-6 text-right">Доля успешных дней</th>
+                    <tr class="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 select-none">
+                        <th onclick="toggleHabitTableSort('date')" class="py-3 px-6 cursor-pointer hover:bg-slate-100 hover:text-slate-700 transition group" title="Сортировка по периодам">
+                            <div class="flex items-center gap-1">
+                                <span>Период</span>
+                                ${getSortIcon('date')}
+                            </div>
+                        </th>
+                        <th onclick="toggleHabitTableSort('val')" class="py-3 px-6 text-center cursor-pointer hover:bg-slate-100 hover:text-slate-700 transition group" title="Сортировка по среднему проценту успеха">
+                            <div class="flex items-center justify-center gap-1">
+                                <span>Средний успех</span>
+                                ${getSortIcon('val')}
+                            </div>
+                        </th>
+                        <th onclick="toggleHabitTableSort('diff')" class="py-3 px-6 text-center cursor-pointer hover:bg-slate-100 hover:text-slate-700 transition group" title="Сортировка по количеству успехов">
+                            <div class="flex items-center justify-center gap-1">
+                                <span>Динамика</span>
+                                ${getSortIcon('diff')}
+                            </div>
+                        </th>
+                        <th onclick="toggleHabitTableSort('succDays')" class="py-3 px-6 text-right cursor-pointer hover:bg-slate-100 hover:text-slate-700 transition group" title="Сортировка по количеству успешных дней">
+                            <div class="flex items-center justify-end gap-1">
+                                <span>Доля успешных дней</span>
+                                ${getSortIcon('succDays')}
+                            </div>
+                        </th>
                     </tr>
                 `;
             }
@@ -1869,9 +1952,31 @@
                 } else if (currentSortMode === 'date-asc') {
                     return dateA - dateB;
                 } else if (currentSortMode === 'val-desc') {
-                    return b.value - a.value;
+                    if (b.value !== a.value) return b.value - a.value;
+                    return dateB - dateA;
                 } else if (currentSortMode === 'val-asc') {
-                    return a.value - b.value;
+                    if (a.value !== b.value) return a.value - b.value;
+                    return dateB - dateA;
+                } else if (currentSortMode === 'succ-diff-desc') {
+                    const diffA = a.successDaysDiff !== undefined ? a.successDaysDiff : a.difference;
+                    const diffB = b.successDaysDiff !== undefined ? b.successDaysDiff : b.difference;
+                    if (diffB !== diffA) return diffB - diffA;
+                    return dateB - dateA;
+                } else if (currentSortMode === 'succ-diff-asc') {
+                    const diffA = a.successDaysDiff !== undefined ? a.successDaysDiff : a.difference;
+                    const diffB = b.successDaysDiff !== undefined ? b.successDaysDiff : b.difference;
+                    if (diffA !== diffB) return diffA - diffB;
+                    return dateB - dateA;
+                } else if (currentSortMode === 'succ-days-desc') {
+                    const sA = a.successDays !== undefined ? a.successDays : (a.status === 'Успех' ? 1 : 0);
+                    const sB = b.successDays !== undefined ? b.successDays : (b.status === 'Успех' ? 1 : 0);
+                    if (sB !== sA) return sB - sA;
+                    return dateB - dateA;
+                } else if (currentSortMode === 'succ-days-asc') {
+                    const sA = a.successDays !== undefined ? a.successDays : (a.status === 'Успех' ? 1 : 0);
+                    const sB = b.successDays !== undefined ? b.successDays : (b.status === 'Успех' ? 1 : 0);
+                    if (sA !== sB) return sA - sB;
+                    return dateB - dateA;
                 }
                 return 0;
             });
