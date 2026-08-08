@@ -54,46 +54,6 @@
             background: #cbd5e1;
             border-radius: 4px;
         }
-        @keyframes streakConicRotate {
-            0% {
-                transform: translate(-50%, -50%) rotate(0deg);
-            }
-            100% {
-                transform: translate(-50%, -50%) rotate(360deg);
-            }
-        }
-        .streak-card-recent {
-            position: relative;
-            padding: 1.2px;
-            border-radius: 0.75rem;
-            background: #e2e8f0;
-            overflow: hidden;
-        }
-        .streak-card-recent::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 300%;
-            height: 300%;
-            background: conic-gradient(
-                from 0deg,
-                transparent 0deg,
-                transparent 270deg,
-                rgba(16, 185, 129, 0.15) 300deg,
-                rgba(16, 185, 129, 0.7) 345deg,
-                #6ee7b7 356deg,
-                #ffffff 360deg
-            );
-            animation: streakConicRotate 6s linear infinite;
-            z-index: 1;
-        }
-        .streak-card-recent-inner {
-            position: relative;
-            z-index: 2;
-            background-color: #ffffff;
-            border-radius: calc(0.75rem - 1.2px);
-        }
     </style>
 </head>
 <body class="h-full text-slate-800 transition-colors duration-200">
@@ -1046,18 +1006,27 @@
                 const avgValue = totalDays > 0 ? (totalVal / totalDays) : 0;
 
                 let difference = 0;
+                let successDaysDiff = 0;
+                const isFirstGroup = (i === 0);
+
                 if (i > 0) {
                     const prevGroup = groupedList[i - 1];
                     const prevTotalDays = prevGroup.items.length;
                     const prevTotalVal = prevGroup.items.reduce((sum, item) => sum + item.value, 0);
                     const prevAvgValue = prevTotalDays > 0 ? (prevTotalVal / prevTotalDays) : 0;
                     difference = avgValue - prevAvgValue;
+
+                    const prevSuccessDays = prevGroup.items.filter(item => item.status === 'Успех').length;
+                    successDaysDiff = successDays - prevSuccessDays;
                 } else {
                     difference = avgValue;
+                    successDaysDiff = 0;
                 }
 
                 group.value = avgValue;
                 group.difference = difference;
+                group.successDaysDiff = successDaysDiff;
+                group.isFirstGroup = isFirstGroup;
                 group.totalDays = totalDays;
                 group.successDays = successDays;
                 group.successRate = totalDays > 0 ? (successDays / totalDays) : 0;
@@ -1526,7 +1495,7 @@
                             } else if (successDiff < 0) {
                                 diffBadgeHtml = `
                                     <span class="inline-flex items-center gap-1 font-bold text-xs font-mono text-rose-600 bg-rose-100/70 px-2.5 py-1 rounded-lg">
-                                        ${successDiff} ${getNounSuccesses(Math.abs(successDiff))} в ${latestYearVal} г.
+                                        ${successDiff} ${getNounSuccesses(Math.abs(successDiff))} к ${latestYearVal} г.
                                     </span>`;
                             } else {
                                 diffBadgeHtml = `
@@ -1602,16 +1571,21 @@
             if (!listContainer) return;
             listContainer.innerHTML = '';
 
-            const chronData = [...filteredData].sort((a, b) => a.date - b.date);
-            const latestItem = chronData[chronData.length - 1];
-            const targetDay = latestItem.date.getDate();
-            const targetMonth = latestItem.date.getMonth();
-            const targetYear = latestItem.date.getFullYear();
+            // Определяем реальные параметры текущего месяца из всей истории habitsData
+            const overallChron = [...habitsData].sort((a, b) => a.date - b.date);
+            const overallLatestItem = overallChron.length > 0 ? overallChron[overallChron.length - 1] : null;
+            const realCurrentDay = overallLatestItem ? overallLatestItem.date.getDate() : 31;
+            const realCurrentMonth = overallLatestItem ? overallLatestItem.date.getMonth() : 11;
+            const realCurrentYear = overallLatestItem ? overallLatestItem.date.getFullYear() : 2026;
+
+            const targetDay = realCurrentDay;
 
             const cutoffEl = document.getElementById('mcomp-cutoff-day');
             if (cutoffEl) cutoffEl.textContent = targetDay;
 
-            // Группировка всех данных по месяцам
+            const chronData = [...filteredData].sort((a, b) => a.date - b.date);
+
+            // Группировка отфильтрованных данных по месяцам
             const monthsMap = new Map();
 
             chronData.forEach(item => {
@@ -1653,10 +1627,13 @@
                 mObj.activeAvgValue = avgValue;
             });
 
-            // Определяем текущий месяц и предыдущий хронологический
-            const currentMonthObj = monthsArray.find(m => m.year === targetYear && m.month === targetMonth) || monthsArray[monthsArray.length - 1];
-            const currentSuccessCount = currentMonthObj ? currentMonthObj.activeSuccessDays : 0;
-            const currentSuccessRate = currentMonthObj ? currentMonthObj.activeSuccessRate : 0;
+            // Считаем успехи реального текущего месяца из всей истории
+            const realCurrentItems = overallChron.filter(item => 
+                item.date.getFullYear() === realCurrentYear &&
+                item.date.getMonth() === realCurrentMonth &&
+                (monthCompFilterMode === 'full' || item.date.getDate() <= targetDay)
+            );
+            const currentSuccessCount = realCurrentItems.filter(i => i.status === 'Успех').length;
 
             // Находим наилучший и наихудший месяц (при равенстве показателей преимущество у более нового месяца)
             let bestMonth = monthsArray[0];
@@ -1732,7 +1709,7 @@
             sortedMonths.forEach((mObj, index) => {
                 const monthName = new Date(mObj.year, mObj.month, 1).toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
                 const formattedName = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-                const isCurrent = mObj.year === targetYear && mObj.month === targetMonth;
+                const isCurrent = mObj.year === realCurrentYear && mObj.month === realCurrentMonth;
 
                 const percentStr = (mObj.activeSuccessRate * 100).toFixed(2) + '%';
                 const successCount = mObj.activeSuccessDays;
@@ -1905,7 +1882,11 @@
                 let diffColor = 'text-slate-400';
                 let diffIcon = '';
 
-                if (percentDifference > 0) {
+                if (item.isFirstGroup) {
+                    diffText = '—';
+                    diffColor = 'text-slate-400';
+                    diffIcon = '';
+                } else if (percentDifference > 0) {
                     diffText = `+${percentDifference.toFixed(2)}%`;
                     diffColor = 'text-emerald-600 font-semibold';
                     diffIcon = '↗';
@@ -1913,6 +1894,38 @@
                     diffText = `${percentDifference.toFixed(2)}%`;
                     diffColor = 'text-rose-600 font-semibold';
                     diffIcon = '↘';
+                }
+
+                let dynamicCellContent = '';
+                if (currentGroupingMode === 'day') {
+                    dynamicCellContent = `
+                        <span class="${diffColor} inline-flex items-center gap-1 font-mono">
+                            ${diffIcon} ${diffText}
+                        </span>
+                    `;
+                } else {
+                    let succDiffHtml = '';
+                    if (item.isFirstGroup) {
+                        succDiffHtml = `<span class="text-slate-400 font-bold block text-xs">—</span>`;
+                    } else {
+                        const sDiff = item.successDaysDiff;
+                        if (sDiff > 0) {
+                            succDiffHtml = `<span class="text-emerald-600 font-bold block text-xs">+${sDiff} ${getNounSuccesses(sDiff)}</span>`;
+                        } else if (sDiff < 0) {
+                            succDiffHtml = `<span class="text-rose-600 font-bold block text-xs">${sDiff} ${getNounSuccesses(Math.abs(sDiff))}</span>`;
+                        } else {
+                            succDiffHtml = `<span class="text-slate-400 font-bold block text-xs">0 успехов</span>`;
+                        }
+                    }
+
+                    dynamicCellContent = `
+                        <div class="flex flex-col items-center">
+                            ${succDiffHtml}
+                            <span class="${diffColor} inline-flex items-center gap-1 font-mono text-[10px] mt-0.5">
+                                ${diffIcon} ${diffText}
+                            </span>
+                        </div>
+                    `;
                 }
 
                 let badgeClass = '';
@@ -1980,9 +1993,7 @@
                         <td class="py-4 px-6 font-semibold text-slate-950">${displayLabel}</td>
                         <td class="py-4 px-6 text-center font-mono text-slate-700">${displayPercent}</td>
                         <td class="py-4 px-6 text-center">
-                            <span class="${diffColor} inline-flex items-center gap-1 font-mono">
-                                ${diffIcon} ${diffText}
-                            </span>
+                            ${dynamicCellContent}
                         </td>
                         <td class="py-4 px-6 text-right">
                             <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold ${badgeClass}">
@@ -2018,62 +2029,26 @@
                     </div>
                 `;
             } else {
-                const referenceDate = (habitsData.length > 0) ? habitsData[habitsData.length - 1].date : new Date();
-                const refMid = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
-                const nowMid = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
-
                 successes.slice(0, limit).forEach((streak, idx) => {
                     let isTop = idx === 0;
                     let badgeBg = isTop ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200';
                     let badgeText = isTop ? '🔥 Рекорд' : `#${idx + 1}`;
-
-                    const endMid = new Date(streak.end.getFullYear(), streak.end.getMonth(), streak.end.getDate());
-                    const daysAgoFromNow = Math.floor((nowMid - endMid) / (1000 * 60 * 60 * 24));
-                    const daysAgoFromLatest = Math.floor((refMid - endMid) / (1000 * 60 * 60 * 24));
                     
-                    const isRecent = (daysAgoFromNow >= 0 && daysAgoFromNow <= 30) || (daysAgoFromLatest >= 0 && daysAgoFromLatest <= 30);
-
-                    const recentBadge = isRecent 
-                        ? `<span class="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full animate-pulse">⚡ Свежий рекорд</span>` 
-                        : '';
-
-                    let rowHtml = '';
-
-                    if (isRecent) {
-                        rowHtml = `
-                            <div class="streak-card-recent shadow-sm transition hover:scale-[1.01]">
-                                <div class="streak-card-recent-inner flex items-center justify-between p-3.5">
-                                    <div class="flex items-center gap-3">
-                                        <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold border ${badgeBg} select-none">${badgeText}</span>
-                                        <div>
-                                            <p class="font-bold text-slate-950 text-xs flex items-center gap-1.5">${streak.count} ${getNounDays(streak.count)} подряд ${recentBadge}</p>
-                                            <p class="text-[10px] text-slate-400 font-medium">${formatDateToString(streak.start)} — ${formatDateToString(streak.end)}</p>
-                                        </div>
-                                    </div>
-                                    <div class="text-right flex flex-col items-end">
-                                        <span class="text-[11px] font-bold text-emerald-600">Рост</span>
-                                        <span class="text-[9px] text-slate-400 mt-0.5 font-medium block">${getDaysAgoText(streak.end)}</span>
-                                    </div>
+                    let rowHtml = `
+                        <div class="flex items-center justify-between p-3.5 bg-white rounded-xl border border-slate-100 shadow-sm transition hover:scale-[1.01]">
+                            <div class="flex items-center gap-3">
+                                <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold border ${badgeBg} select-none">${badgeText}</span>
+                                <div>
+                                    <p class="font-bold text-slate-950 text-xs">${streak.count} ${getNounDays(streak.count)} подряд</p>
+                                    <p class="text-[10px] text-slate-400 font-medium">${formatDateToString(streak.start)} — ${formatDateToString(streak.end)}</p>
                                 </div>
                             </div>
-                        `;
-                    } else {
-                        rowHtml = `
-                            <div class="flex items-center justify-between p-3.5 bg-white rounded-xl border border-slate-100 shadow-sm transition hover:scale-[1.01]">
-                                <div class="flex items-center gap-3">
-                                    <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold border ${badgeBg} select-none">${badgeText}</span>
-                                    <div>
-                                        <p class="font-bold text-slate-950 text-xs">${streak.count} ${getNounDays(streak.count)} подряд</p>
-                                        <p class="text-[10px] text-slate-400 font-medium">${formatDateToString(streak.start)} — ${formatDateToString(streak.end)}</p>
-                                    </div>
-                                </div>
-                                <div class="text-right flex flex-col items-end">
-                                    <span class="text-[11px] font-bold text-emerald-600">Рост</span>
-                                    <span class="text-[9px] text-slate-400 mt-0.5 font-medium block">${getDaysAgoText(streak.end)}</span>
-                                </div>
+                            <div class="text-right flex flex-col items-end">
+                                <span class="text-[11px] font-bold text-emerald-600">Рост</span>
+                                <span class="text-[9px] text-slate-400 mt-0.5 font-medium block">${getDaysAgoText(streak.end)}</span>
                             </div>
-                        `;
-                    }
+                        </div>
+                    `;
                     successListContainer.insertAdjacentHTML('beforeend', rowHtml);
                 });
             }
