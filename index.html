@@ -458,6 +458,15 @@
                             </div>
                         </div>
 
+                        <div class="space-y-3">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 select-none flex items-center gap-1.5">
+                                <i data-lucide="trophy" class="w-4 h-4 text-amber-500"></i> Особые достижения и награды
+                            </h4>
+                            <div id="special-achievements-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <!-- Dynamic achievement cards -->
+                            </div>
+                        </div>
+
                         <div id="achievements-active-card" class="bg-gradient-to-br from-primary-50 to-indigo-50/40 border border-primary-200/80 rounded-2xl p-5 shadow-sm space-y-3">
                         </div>
 
@@ -542,6 +551,44 @@
             </div>
         </div>
 
+        <div id="achievementDetailModal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+            <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <div class="fixed inset-0 bg-slate-900/60 transition-opacity" aria-hidden="true" onclick="closeAchievementModal()"></div>
+                <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+                <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full border border-slate-200">
+                    <div class="p-6 space-y-4">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-center gap-3">
+                                <div id="ach-modal-icon-container" class="p-3 bg-primary-100 text-primary-600 rounded-2xl text-2xl font-bold">
+                                    ⚡
+                                </div>
+                                <div>
+                                    <h3 id="ach-modal-title" class="text-base font-extrabold text-slate-900">Название достижения</h3>
+                                    <p id="ach-modal-desc" class="text-xs text-slate-500 font-medium">Описание условия получения</p>
+                                </div>
+                            </div>
+                            <button onclick="closeAchievementModal()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+
+                        <div id="ach-modal-status-bar" class="p-3 bg-slate-50 border border-slate-150 rounded-xl text-xs font-semibold flex items-center justify-between">
+                            <span class="text-slate-500">Статус:</span>
+                            <span id="ach-modal-status-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary-100 text-primary-800">...</span>
+                        </div>
+
+                        <div class="space-y-2">
+                            <h5 class="text-xs font-bold text-slate-700 uppercase tracking-wider">История выполнений:</h5>
+                            <div id="ach-modal-history-list" class="space-y-2 max-h-72 overflow-y-auto pr-1">
+                                <!-- Dynamic history list -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3">
             <i data-lucide="check-circle" class="w-5 h-5"></i>
             <span id="toast-message" class="text-xs font-semibold">Файл успешно загружен!</span>
@@ -563,6 +610,7 @@
         let chartSubTab = 'percent'; // 'percent' или 'count'
         let trendChartInstance = null; 
         let showAllChronology = false; 
+        let specialAchievementsData = {};
 
         // Переменные для вкладки "Сравнение месяцев"
         let monthCompSortMode = 'best'; // 'best', 'worst', 'date-desc', 'date-asc', 'count-desc'
@@ -2494,6 +2542,199 @@
                 if (avgRateTextEl) avgRateTextEl.textContent = 'Пока нет ни одной закрытой сотни';
             }
 
+            // Рендеринг особых достижений
+            const specialGridEl = document.getElementById('special-achievements-grid');
+            if (specialGridEl) {
+                specialGridEl.innerHTML = '';
+                
+                // 1. Недельный спринт (7+ дней подряд)
+                const allSuccessStreaks = getStreakLists(habitsData).successes;
+                const weekSprints = allSuccessStreaks.filter(s => s.count >= 7);
+                const sprintHistory = weekSprints.map((s, idx) => ({
+                    title: `Спринт #${weekSprints.length - idx} • ${s.count} ${getNounDays(s.count)} подряд`,
+                    subtext: `${formatDateToString(s.start)} — ${formatDateToString(s.end)} (${getDaysAgoText(s.end)})`,
+                    valueText: `${s.count} дн.`,
+                    badgeText: s.count >= 14 ? '🔥 Двойная неделя' : ''
+                }));
+
+                // 2. Легендарная серия (Каждый новый рекорд длительности)
+                const chronSuccessStreaks = [...allSuccessStreaks].sort((a, b) => a.start - b.start);
+                let maxStreakSoFar = 0;
+                const recordBreaks = [];
+                chronSuccessStreaks.forEach(s => {
+                    if (s.count > maxStreakSoFar) {
+                        recordBreaks.push({ streak: s, prevRecord: maxStreakSoFar });
+                        maxStreakSoFar = s.count;
+                    }
+                });
+
+                const legendHistory = recordBreaks.map((r, idx) => ({
+                    title: `Рекорд #${idx + 1}: ${r.streak.count} ${getNounDays(r.streak.count)} подряд`,
+                    subtext: `${formatDateToString(r.streak.start)} — ${formatDateToString(r.streak.end)} (${getDaysAgoText(r.streak.end)})`,
+                    valueText: r.prevRecord > 0 ? `+${r.streak.count - r.prevRecord} дн. к прошлому (${r.prevRecord} дн.)` : 'Первый базовый рекорд',
+                    badgeText: idx === recordBreaks.length - 1 ? '🏆 Действующий рекорд' : ''
+                })).reverse();
+
+                // 3. Сверхзвуковая сотня (На 5+ дней быстрее среднего темпа)
+                const supersonicHundreds = [];
+                hundredsList.forEach((h, idx) => {
+                    const priorHundreds = hundredsList.slice(0, idx);
+                    const priorAvg = priorHundreds.length > 0 
+                        ? (priorHundreds.reduce((sum, p) => sum + p.calendarDays, 0) / priorHundreds.length)
+                        : (hundredsList.reduce((sum, p) => sum + p.calendarDays, 0) / hundredsList.length);
+                    
+                    if (h.calendarDays <= (priorAvg - 5)) {
+                        supersonicHundreds.push({
+                            hundred: h,
+                            priorAvg: priorAvg,
+                            daysFaster: Math.round(priorAvg - h.calendarDays)
+                        });
+                    }
+                });
+
+                const supersonicHistory = supersonicHundreds.map(sh => ({
+                    title: `${sh.hundred.index}-я сотня успехов`,
+                    subtext: `Период: ${formatDateToString(sh.hundred.startDate)} — ${formatDateToString(sh.hundred.endDate)}`,
+                    valueText: `${sh.hundred.calendarDays} дн.`,
+                    badgeText: `На ${sh.daysFaster} ${getNounDays(sh.daysFaster)} быстрее среднего (${Math.round(sh.priorAvg)} дн.)`
+                })).reverse();
+
+                // 4. Абсолютный рекорд сотни (Новый рекорд минимального времени на 100 успехов)
+                let minDaysSoFar = Infinity;
+                const speedRecords = [];
+                hundredsList.forEach(h => {
+                    if (h.calendarDays < minDaysSoFar) {
+                        speedRecords.push({ hundred: h, prevRecord: minDaysSoFar === Infinity ? null : minDaysSoFar });
+                        minDaysSoFar = h.calendarDays;
+                    }
+                });
+
+                const fastestRecordHistory = speedRecords.map((sr, idx) => ({
+                    title: `${sr.hundred.index}-я сотня: ${sr.hundred.calendarDays} ${getNounDays(sr.hundred.calendarDays)}`,
+                    subtext: `Период: ${formatDateToString(sr.hundred.startDate)} — ${formatDateToString(sr.hundred.endDate)}`,
+                    valueText: sr.prevRecord ? `-${sr.prevRecord - sr.hundred.calendarDays} дн. от рекорда` : 'Первый базовый рекорд',
+                    badgeText: idx === speedRecords.length - 1 ? '⚡ Действующий рекорд' : ''
+                })).reverse();
+
+                // 5. Клуб 500 / Клуб 1000
+                const clubHistory = [];
+                if (totalSuccesses >= 500) {
+                    const item500 = successItems[499];
+                    const daysTo500 = Math.round((item500.date - chronData[0].date) / (1000 * 60 * 60 * 24)) + 1;
+                    clubHistory.push({
+                        title: 'Клуб 500 успехов — Достигнуто!',
+                        subtext: `Достигнуто: ${formatDateToString(item500.date)} (${getDaysAgoText(item500.date)})`,
+                        valueText: `За ${daysTo500} ${getNounDays(daysTo500)}`,
+                        badgeText: '👑 Клуб 500'
+                    });
+                } else {
+                    clubHistory.push({
+                        title: 'Клуб 500 успехов (в процессе)',
+                        subtext: `Накоплено ${totalSuccesses} из 500 успехов (осталось ${500 - totalSuccesses})`,
+                        valueText: `${(totalSuccesses * 100 / 500).toFixed(1)}%`,
+                        badgeText: ''
+                    });
+                }
+
+                if (totalSuccesses >= 1000) {
+                    const item1000 = successItems[999];
+                    const daysTo1000 = Math.round((item1000.date - chronData[0].date) / (1000 * 60 * 60 * 24)) + 1;
+                    clubHistory.push({
+                        title: 'Клуб 1000 успехов — Достигнуто!',
+                        subtext: `Достигнуто: ${formatDateToString(item1000.date)} (${getDaysAgoText(item1000.date)})`,
+                        valueText: `За ${daysTo1000} ${getNounDays(daysTo1000)}`,
+                        badgeText: '👑 Клуб 1000'
+                    });
+                } else {
+                    clubHistory.push({
+                        title: 'Клуб 1000 успехов (в процессе)',
+                        subtext: `Накоплено ${totalSuccesses} из 1000 успехов (осталось ${1000 - totalSuccesses})`,
+                        valueText: `${(totalSuccesses * 100 / 1000).toFixed(1)}%`,
+                        badgeText: ''
+                    });
+                }
+
+                specialAchievementsData = {
+                    sprint: {
+                        icon: '⚡',
+                        title: 'Недельный спринт',
+                        desc: 'Каждая серия из 7 и более успешных дней подряд.',
+                        statusText: weekSprints.length > 0 ? `Выполнено ${weekSprints.length} раз` : 'Пока не получено',
+                        statusBadgeClass: weekSprints.length > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600',
+                        history: sprintHistory
+                    },
+                    legend: {
+                        icon: '🏆',
+                        title: 'Легендарная серия',
+                        desc: 'Установка нового рекорда самой длинной серии успехов.',
+                        statusText: recordBreaks.length > 0 ? `Установлено ${recordBreaks.length} рекордов` : 'Пока не получено',
+                        statusBadgeClass: recordBreaks.length > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600',
+                        history: legendHistory
+                    },
+                    supersonic: {
+                        icon: '🚀',
+                        title: 'Сверхзвуковая сотня',
+                        desc: 'Закрыть 100 успехов на 5+ дней быстрее своего среднего темпа.',
+                        statusText: supersonicHundreds.length > 0 ? `Выполнено ${supersonicHundreds.length} раз` : 'Пока не получено',
+                        statusBadgeClass: supersonicHundreds.length > 0 ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-600',
+                        history: supersonicHistory
+                    },
+                    fastestRecord: {
+                        icon: '⏱️',
+                        title: 'Абсолютный рекорд сотни',
+                        desc: 'Установка нового рекорда скорости закрытия 100 успехов за историю.',
+                        statusText: speedRecords.length > 0 ? `Установлено ${speedRecords.length} рекордов` : 'Пока не получено',
+                        statusBadgeClass: speedRecords.length > 0 ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600',
+                        history: fastestRecordHistory
+                    },
+                    club500_1000: {
+                        icon: '👑',
+                        title: 'Клуб 500 / Клуб 1000',
+                        desc: 'Накопить суммарно 500 и 1000 успешных дней в трекере.',
+                        statusText: totalSuccesses >= 1000 ? 'В клубе 1000!' : totalSuccesses >= 500 ? 'В клубе 500!' : `${totalSuccesses} / 500 успехов`,
+                        statusBadgeClass: totalSuccesses >= 500 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600',
+                        history: clubHistory
+                    }
+                };
+
+                const achKeys = ['sprint', 'legend', 'supersonic', 'fastestRecord', 'club500_1000'];
+                achKeys.forEach(key => {
+                    const ach = specialAchievementsData[key];
+                    const isUnlocked = ach.history.length > 0 && (key !== 'club500_1000' || totalSuccesses >= 500);
+
+                    const borderClass = isUnlocked
+                        ? 'border-slate-200 bg-white hover:border-primary-400 hover:shadow-md cursor-pointer'
+                        : 'border-slate-150 bg-slate-50/60 opacity-80 cursor-pointer hover:bg-slate-100/60';
+
+                    const cardHtml = `
+                        <div onclick="openAchievementModal('${key}')" class="p-4 rounded-xl border ${borderClass} transition space-y-3 group">
+                            <div class="flex items-start justify-between">
+                                <div class="p-2.5 bg-slate-100 rounded-xl text-xl font-bold group-hover:scale-110 transition-transform">
+                                    ${ach.icon}
+                                </div>
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${ach.statusBadgeClass}">
+                                    ${ach.statusText}
+                                </span>
+                            </div>
+
+                            <div class="space-y-1">
+                                <h5 class="text-xs font-extrabold text-slate-900 flex items-center justify-between">
+                                    <span>${ach.title}</span>
+                                    <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-400 group-hover:text-primary-600 group-hover:translate-x-0.5 transition-all"></i>
+                                </h5>
+                                <p class="text-[10px] text-slate-500 font-medium leading-relaxed">${ach.desc}</p>
+                            </div>
+
+                            <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-semibold">
+                                <span class="text-primary-600 font-bold group-hover:underline">Посмотреть историю</span>
+                                <span>${ach.history.length} ${ach.history.length === 1 ? 'запись' : 'записей'}</span>
+                            </div>
+                        </div>
+                    `;
+                    specialGridEl.insertAdjacentHTML('beforeend', cardHtml);
+                });
+            }
+
             // Рендеринг активной сотни в процессе
             const activeCardEl = document.getElementById('achievements-active-card');
             if (activeCardEl) {
@@ -2637,6 +2878,64 @@
             }
 
             if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+        }
+
+        function openAchievementModal(achId) {
+            const ach = specialAchievementsData[achId];
+            if (!ach) return;
+
+            const modal = document.getElementById('achievementDetailModal');
+            if (!modal) return;
+
+            const iconEl = document.getElementById('ach-modal-icon-container');
+            const titleEl = document.getElementById('ach-modal-title');
+            const descEl = document.getElementById('ach-modal-desc');
+            const statusBadgeEl = document.getElementById('ach-modal-status-badge');
+            const historyListEl = document.getElementById('ach-modal-history-list');
+
+            if (iconEl) iconEl.textContent = ach.icon;
+            if (titleEl) titleEl.textContent = ach.title;
+            if (descEl) descEl.textContent = ach.desc;
+
+            if (statusBadgeEl) {
+                statusBadgeEl.textContent = ach.statusText;
+                statusBadgeEl.className = `px-2.5 py-0.5 rounded-full text-xs font-bold ${ach.statusBadgeClass}`;
+            }
+
+            if (historyListEl) {
+                historyListEl.innerHTML = '';
+                if (ach.history.length === 0) {
+                    historyListEl.innerHTML = `
+                        <div class="p-4 bg-slate-50 border border-slate-150 rounded-xl text-center text-xs text-slate-400 font-medium">
+                            Достижение пока не получено. Продолжайте выполнять привычку!
+                        </div>
+                    `;
+                } else {
+                    ach.history.forEach(item => {
+                        const itemHtml = `
+                            <div class="p-3 bg-slate-50 border border-slate-150 rounded-xl text-xs flex items-center justify-between gap-3 hover:bg-slate-100/60 transition">
+                                <div class="space-y-0.5">
+                                    <span class="font-bold text-slate-900 block">${item.title}</span>
+                                    <span class="text-[10px] text-slate-500 block">${item.subtext}</span>
+                                </div>
+                                <div class="text-right shrink-0">
+                                    <span class="font-bold text-primary-600 font-mono block">${item.valueText}</span>
+                                    ${item.badgeText ? `<span class="text-[9px] font-bold px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded mt-0.5 inline-block">${item.badgeText}</span>` : ''}
+                                </div>
+                            </div>
+                        `;
+                        historyListEl.insertAdjacentHTML('beforeend', itemHtml);
+                    });
+                }
+            }
+
+            modal.classList.remove('hidden');
+            if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+        }
+
+        function closeAchievementModal() {
+            const modal = document.getElementById('achievementDetailModal');
+            if (modal) modal.classList.add('hidden');
         }
 
         function renderTrendsChart() {
