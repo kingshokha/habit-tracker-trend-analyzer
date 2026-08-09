@@ -1700,12 +1700,14 @@
             if (!listContainer) return;
             listContainer.innerHTML = '';
 
-            // Определяем реальные параметры текущего месяца из всей истории habitsData
+            // Определяем реальные параметры текущего сегодняшнего месяца
+            const today = new Date();
+            const realCurrentMonth = today.getMonth();
+            const realCurrentDay = today.getDate();
+
             const overallChron = [...habitsData].sort((a, b) => a.date - b.date);
-            const overallLatestItem = overallChron.length > 0 ? overallChron[overallChron.length - 1] : null;
-            const realCurrentDay = overallLatestItem ? overallLatestItem.date.getDate() : 31;
-            const realCurrentMonth = overallLatestItem ? overallLatestItem.date.getMonth() : 11;
-            const realCurrentYear = overallLatestItem ? overallLatestItem.date.getFullYear() : 2026;
+            const latestYear = overallChron.length > 0 ? overallChron[overallChron.length - 1].date.getFullYear() : today.getFullYear();
+            const realCurrentYear = latestYear;
 
             const targetDay = realCurrentDay;
 
