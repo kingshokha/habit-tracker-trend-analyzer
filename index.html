@@ -2580,20 +2580,24 @@
                     };
                 }).reverse();
 
-                // 3. Сверхзвуковая сотня (На 5+ дней быстрее среднего темпа)
+                // 3. Сверхзвуковая сотня (На 10+ дней быстрее среднего темпа за последние 2 года)
                 const supersonicHundreds = [];
                 hundredsList.forEach((h, idx) => {
-                    const priorHundreds = hundredsList.slice(0, idx);
-                    const priorAvg = priorHundreds.length > 0 
-                        ? (priorHundreds.reduce((sum, p) => sum + p.calendarDays, 0) / priorHundreds.length)
-                        : (hundredsList.reduce((sum, p) => sum + p.calendarDays, 0) / hundredsList.length);
+                    const twoYearsMs = 2 * 365.25 * 24 * 60 * 60 * 1000;
+                    const minDate = h.endDate - twoYearsMs;
                     
-                    if (h.calendarDays <= (priorAvg - 5)) {
-                        supersonicHundreds.push({
-                            hundred: h,
-                            priorAvg: priorAvg,
-                            daysFaster: Math.round(priorAvg - h.calendarDays)
-                        });
+                    const priorHundredsIn2Years = hundredsList.slice(0, idx).filter(p => p.endDate >= minDate);
+                    const pool = priorHundredsIn2Years.length > 0 ? priorHundredsIn2Years : hundredsList.slice(0, idx);
+                    
+                    if (pool.length > 0) {
+                        const priorAvg = pool.reduce((sum, p) => sum + p.calendarDays, 0) / pool.length;
+                        if (h.calendarDays <= (priorAvg - 10)) {
+                            supersonicHundreds.push({
+                                hundred: h,
+                                priorAvg: priorAvg,
+                                daysFaster: Math.round(priorAvg - h.calendarDays)
+                            });
+                        }
                     }
                 });
 
@@ -2602,7 +2606,7 @@
                     subtext: `Период: ${formatDateToString(sh.hundred.startDate)} — ${formatDateToString(sh.hundred.endDate)}`,
                     valueText: `-${sh.daysFaster} ${getNounDays(sh.daysFaster)}`,
                     valueColorClass: 'text-emerald-600 font-bold',
-                    badgeText: `Быстрее среднего (${Math.round(sh.priorAvg)} дн.)`
+                    badgeText: `Быстрее среднего 2 лет (${Math.round(sh.priorAvg)} дн.)`
                 })).reverse();
 
                 // 4. Абсолютный рекорд сотни (Новый рекорд минимального времени на 100 успехов)
@@ -2632,7 +2636,33 @@
                     };
                 }).reverse();
 
-                // 5. Клуб успехов (100, 300, 500, 800, 1000, 1200 успехов)
+                // 5. Успешный месяц (закрыть месяц на 2+ успеха больше среднего показателя за последний год)
+                const overallChron = getOverallChronologyData();
+                const groupedMonths = getGroupedData(overallChron, 'month');
+                const successfulMonths = [];
+
+                groupedMonths.forEach((m, idx) => {
+                    const prior12Months = groupedMonths.slice(Math.max(0, idx - 12), idx);
+                    if (prior12Months.length > 0) {
+                        const priorAvgSuccesses = prior12Months.reduce((sum, pm) => sum + pm.successDays, 0) / prior12Months.length;
+                        if (m.successDays >= priorAvgSuccesses + 2) {
+                            successfulMonths.push({
+                                monthObj: m,
+                                priorAvg: priorAvgSuccesses
+                            });
+                        }
+                    }
+                });
+
+                const successfulMonthHistory = successfulMonths.map(sm => ({
+                    title: `${sm.monthObj.label} • ${sm.monthObj.successDays} ${getNounSuccesses(sm.monthObj.successDays)}`,
+                    subtext: `Период: ${formatDateToString(sm.monthObj.startDate)} — ${formatDateToString(sm.monthObj.endDate)}`,
+                    valueText: `+${(sm.monthObj.successDays - sm.priorAvg).toFixed(1)} усп.`,
+                    valueColorClass: 'text-emerald-600 font-bold',
+                    badgeText: `Среднее 12 мес.: ${sm.priorAvg.toFixed(1)} усп.`
+                })).reverse();
+
+                // 6. Клуб успехов (100, 300, 500, 800, 1000, 1200 успехов)
                 const clubMilestones = [100, 300, 500, 800, 1000, 1200];
                 const clubHistory = clubMilestones.map(m => {
                     if (totalSuccesses >= m) {
@@ -2679,7 +2709,7 @@
                     supersonic: {
                         icon: '🚀',
                         title: 'Сверхзвуковая сотня',
-                        desc: 'Закрыть 100 успехов на 5+ дней быстрее своего среднего темпа.',
+                        desc: 'Закрыть 100 успехов на 10+ дней быстрее своего среднего темпа за последние 2 года.',
                         statusText: supersonicHundreds.length > 0 ? `Выполнено ${supersonicHundreds.length} раз` : 'Пока не получено',
                         statusBadgeClass: supersonicHundreds.length > 0 ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-600',
                         history: supersonicHistory
@@ -2692,6 +2722,14 @@
                         statusBadgeClass: speedRecords.length > 0 ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600',
                         history: fastestRecordHistory
                     },
+                    successfulMonth: {
+                        icon: '🌟',
+                        title: 'Успешный месяц',
+                        desc: 'Закрыть месяц на 2+ успеха больше, чем средний показатель за последний год.',
+                        statusText: successfulMonths.length > 0 ? `Выполнено ${successfulMonths.length} раз` : 'Пока не получено',
+                        statusBadgeClass: successfulMonths.length > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600',
+                        history: successfulMonthHistory
+                    },
                     club: {
                         icon: '👑',
                         title: 'Клуб успехов',
@@ -2702,7 +2740,7 @@
                     }
                 };
 
-                const achKeys = ['sprint', 'legend', 'supersonic', 'fastestRecord', 'club'];
+                const achKeys = ['sprint', 'legend', 'supersonic', 'fastestRecord', 'successfulMonth', 'club'];
                 achKeys.forEach(key => {
                     const ach = specialAchievementsData[key];
                     const isUnlocked = ach.history.length > 0 && (key !== 'club' || highestClub > 0);
