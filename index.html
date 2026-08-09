@@ -129,6 +129,9 @@
                         <button id="tab-streaks-btn" onclick="switchTab('streaks')" class="py-3 text-xs font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2 transition focus:outline-none whitespace-nowrap">
                             <i data-lucide="flame" class="w-4 h-4"></i> Рекорды
                         </button>
+                        <button id="tab-achievements-btn" onclick="switchTab('achievements')" class="py-3 text-xs font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2 transition focus:outline-none whitespace-nowrap">
+                            <i data-lucide="award" class="w-4 h-4"></i> Достижения
+                        </button>
                         <button id="tab-charts-btn" onclick="switchTab('charts')" class="py-3 text-xs font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2 transition focus:outline-none whitespace-nowrap">
                             <i data-lucide="line-chart" class="w-4 h-4"></i> Статистика
                         </button>
@@ -358,6 +361,65 @@
                         </div>
                     </div>
 
+                    <div id="achievements-view-content" class="hidden p-6 space-y-6">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-150">
+                            <div class="flex items-center gap-2.5">
+                                <div class="p-2 bg-amber-100 text-amber-600 rounded-lg">
+                                    <i data-lucide="award" class="w-5 h-5"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-xs font-bold text-slate-900">Достижения и Сотни успехов</h4>
+                                    <p class="text-[10px] text-slate-500 font-medium">Отслеживание скорости достижения каждых 100 успехов в вашей привычке</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span id="achievements-summary-badge" class="px-3 py-1 rounded-xl text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 inline-block">
+                                    0 сотен успехов
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-150 space-y-1">
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Всего успехов за всё время</span>
+                                <div class="flex items-baseline gap-1.5">
+                                    <span id="achievements-total-successes" class="text-lg font-extrabold text-primary-600 font-mono">0</span>
+                                    <span class="text-xs text-slate-500 font-semibold">успехов</span>
+                                </div>
+                                <span id="achievements-completed-hundreds-text" class="text-[10px] text-slate-400 block font-medium">0 полных сотен закрыто</span>
+                            </div>
+
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-150 space-y-1">
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Рекорд скорости (100 успехов)</span>
+                                <div class="flex items-baseline gap-1.5">
+                                    <span id="achievements-fastest-hundred" class="text-lg font-extrabold text-emerald-600 font-mono">—</span>
+                                    <span id="achievements-fastest-days-label" class="text-xs text-emerald-700 font-semibold"></span>
+                                </div>
+                                <span id="achievements-fastest-title" class="text-[10px] text-slate-400 block font-medium truncate">—</span>
+                            </div>
+
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-150 space-y-1">
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Среднее время на 100 успехов</span>
+                                <div class="flex items-baseline gap-1.5">
+                                    <span id="achievements-avg-days-hundred" class="text-lg font-extrabold text-slate-800 font-mono">—</span>
+                                    <span id="achievements-avg-days-label" class="text-xs text-slate-600 font-semibold"></span>
+                                </div>
+                                <span id="achievements-avg-rate-text" class="text-[10px] text-slate-400 block font-medium">—</span>
+                            </div>
+                        </div>
+
+                        <div id="achievements-active-card" class="bg-gradient-to-br from-primary-50 to-indigo-50/40 border border-primary-200/80 rounded-2xl p-5 shadow-sm space-y-3">
+                        </div>
+
+                        <div class="space-y-3">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 select-none flex items-center gap-1.5">
+                                <i data-lucide="check-check" class="w-4 h-4 text-emerald-500"></i> Закрытые сотни успехов
+                            </h4>
+                            <div id="achievements-hundreds-list" class="space-y-3">
+                            </div>
+                        </div>
+                    </div>
+
                     <div id="charts-view-content" class="hidden p-6 space-y-6">
                         <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-150">
                             <div>
@@ -579,6 +641,22 @@
                 return 'успеха';
             }
             return 'успехов';
+        }
+
+        function getNounHundreds(number) {
+            let n = Math.abs(number);
+            n %= 100;
+            if (n >= 5 && n <= 20) {
+                return 'сотен';
+            }
+            n %= 10;
+            if (n === 1) {
+                return 'сотня';
+            }
+            if (n >= 2 && n <= 4) {
+                return 'сотни';
+            }
+            return 'сотен';
         }
 
         function getDaysAgoRussian(days) {
@@ -1084,6 +1162,8 @@
                 renderHabitsTable(filteredData);
             } else if (activeTab === 'streaks') {
                 renderStreaksTable(filteredData);
+            } else if (activeTab === 'achievements') {
+                renderAchievementsTab();
             } else if (activeTab === 'charts') {
                 renderTrendsChart();
             }
@@ -1267,12 +1347,14 @@
             const monthCompTabBtn = document.getElementById('tab-month-comp-btn');
             const chronTabBtn = document.getElementById('tab-chronology-btn');
             const streaksTabBtn = document.getElementById('tab-streaks-btn');
+            const achievementsTabBtn = document.getElementById('tab-achievements-btn');
             const chartsTabBtn = document.getElementById('tab-charts-btn');
             
             const overviewContent = document.getElementById('overview-view-content');
             const monthCompContent = document.getElementById('month-comp-view-content');
             const chronContent = document.getElementById('chronology-view-content');
             const streaksContent = document.getElementById('streaks-view-content');
+            const achievementsContent = document.getElementById('achievements-view-content');
             const chartsContent = document.getElementById('charts-view-content');
             
             const sortContainer = document.getElementById('sort-selector-container');
@@ -1280,13 +1362,13 @@
             const dateRangeContainer = document.getElementById('date-range-container');
             const yearContainer = document.getElementById('year-selector-container');
 
-            [overviewTabBtn, monthCompTabBtn, chronTabBtn, streaksTabBtn, chartsTabBtn].forEach(btn => {
+            [overviewTabBtn, monthCompTabBtn, chronTabBtn, streaksTabBtn, achievementsTabBtn, chartsTabBtn].forEach(btn => {
                 if (btn) {
                     btn.className = "py-3 text-xs font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2 transition focus:outline-none whitespace-nowrap";
                 }
             });
 
-            [overviewContent, monthCompContent, chronContent, streaksContent, chartsContent].forEach(c => {
+            [overviewContent, monthCompContent, chronContent, streaksContent, achievementsContent, chartsContent].forEach(c => {
                 if (c) {
                     c.classList.add('hidden');
                     c.classList.remove('block');
@@ -1321,6 +1403,13 @@
                 if (groupingContainer) groupingContainer.classList.add('hidden');
                 if (dateRangeContainer) dateRangeContainer.classList.remove('invisible');
                 if (yearContainer) yearContainer.classList.remove('invisible');
+            } else if (tabName === 'achievements') {
+                if (achievementsTabBtn) achievementsTabBtn.className = "py-3 text-xs font-bold border-b-2 border-primary-600 text-primary-600 flex items-center gap-2 transition focus:outline-none whitespace-nowrap";
+                if (achievementsContent) { achievementsContent.classList.remove('hidden'); achievementsContent.classList.add('block'); }
+                if (sortContainer) sortContainer.classList.add('invisible');
+                if (groupingContainer) groupingContainer.classList.add('hidden');
+                if (dateRangeContainer) dateRangeContainer.classList.add('invisible');
+                if (yearContainer) yearContainer.classList.add('invisible');
             } else if (tabName === 'charts') {
                 if (chartsTabBtn) chartsTabBtn.className = "py-3 text-xs font-bold border-b-2 border-primary-600 text-primary-600 flex items-center gap-2 transition focus:outline-none whitespace-nowrap";
                 if (chartsContent) { chartsContent.classList.remove('hidden'); chartsContent.classList.add('block'); }
@@ -2285,240 +2374,239 @@
             return { successes, failures };
         }
 
+        function renderAchievementsTab() {
+            if (habitsData.length === 0) return;
+
+            // Сортируем ВСЮ историю habitsData хронологически по дате
+            const chronData = [...habitsData].sort((a, b) => a.date - b.date);
+            const successItems = chronData.filter(item => item.status === 'Успех');
+
+            const totalSuccesses = successItems.length;
+            const completedHundredsCount = Math.floor(totalSuccesses / 100);
+
+            // Элементы суммарной статистики
+            const totalSuccEl = document.getElementById('achievements-total-successes');
+            const completedHundredsTextEl = document.getElementById('achievements-completed-hundreds-text');
+            const summaryBadgeEl = document.getElementById('achievements-summary-badge');
+            const fastestEl = document.getElementById('achievements-fastest-hundred');
+            const fastestDaysLabelEl = document.getElementById('achievements-fastest-days-label');
+            const fastestTitleEl = document.getElementById('achievements-fastest-title');
+            const avgDaysEl = document.getElementById('achievements-avg-days-hundred');
+            const avgDaysLabelEl = document.getElementById('achievements-avg-days-label');
+            const avgRateTextEl = document.getElementById('achievements-avg-rate-text');
+
+            if (totalSuccEl) totalSuccEl.textContent = totalSuccesses;
+            if (completedHundredsTextEl) completedHundredsTextEl.textContent = `${completedHundredsCount} ${getNounHundreds(completedHundredsCount)} закрыто`;
+            if (summaryBadgeEl) summaryBadgeEl.textContent = `${completedHundredsCount} ${getNounHundreds(completedHundredsCount)} успехов`;
+
+            // Формируем сотни
+            const hundredsList = [];
+            for (let i = 0; i < completedHundredsCount; i++) {
+                const chunk = successItems.slice(i * 100, (i + 1) * 100);
+                const firstSuccessDate = chunk[0].date;
+                const lastSuccessDate = chunk[99].date;
+
+                // Календарных дней от 1-го успеха в этой сотне до 100-го успеха включительно
+                const calendarDays = Math.round((lastSuccessDate - firstSuccessDate) / (1000 * 60 * 60 * 24)) + 1;
+
+                // Всего записей в трекере за этот период
+                const trackerItemsInPeriod = chronData.filter(item => item.date >= firstSuccessDate && item.date <= lastSuccessDate);
+                const totalTrackerDays = trackerItemsInPeriod.length;
+                const successRate = totalTrackerDays > 0 ? (100 / totalTrackerDays) : (100 / calendarDays);
+
+                hundredsList.push({
+                    index: i + 1,
+                    startSuccessNum: i * 100 + 1,
+                    endSuccessNum: (i + 1) * 100,
+                    startDate: firstSuccessDate,
+                    endDate: lastSuccessDate,
+                    calendarDays: calendarDays,
+                    totalTrackerDays: totalTrackerDays,
+                    successRate: successRate
+                });
+            }
+
+            // Рассчитываем рекордную сотню (минимальное число календарных дней)
+            let fastestHundred = null;
+            if (hundredsList.length > 0) {
+                fastestHundred = hundredsList[0];
+                hundredsList.forEach(h => {
+                    if (h.calendarDays < fastestHundred.calendarDays) {
+                        fastestHundred = h;
+                    }
+                });
+            }
+
+            if (fastestHundred) {
+                if (fastestEl) fastestEl.textContent = fastestHundred.calendarDays;
+                if (fastestDaysLabelEl) fastestDaysLabelEl.textContent = getNounDays(fastestHundred.calendarDays);
+                if (fastestTitleEl) fastestTitleEl.textContent = `${fastestHundred.index}-я сотня (${formatDateToString(fastestHundred.startDate)} — ${formatDateToString(fastestHundred.endDate)})`;
+            } else {
+                if (fastestEl) fastestEl.textContent = '—';
+                if (fastestDaysLabelEl) fastestDaysLabelEl.textContent = '';
+                if (fastestTitleEl) fastestTitleEl.textContent = 'Нужно 100 успехов для рекорда';
+            }
+
+            // Среднее число дней на 100 успехов
+            if (hundredsList.length > 0) {
+                const sumDays = hundredsList.reduce((acc, h) => acc + h.calendarDays, 0);
+                const avgDays = Math.round(sumDays / hundredsList.length);
+                if (avgDaysEl) avgDaysEl.textContent = avgDays;
+                if (avgDaysLabelEl) avgDaysLabelEl.textContent = getNounDays(avgDays);
+                if (avgRateTextEl) avgRateTextEl.textContent = `Средняя скорость по ${hundredsList.length} ${getNounHundreds(hundredsList.length)}`;
+            } else {
+                if (avgDaysEl) avgDaysEl.textContent = '—';
+                if (avgDaysLabelEl) avgDaysLabelEl.textContent = '';
+                if (avgRateTextEl) avgRateTextEl.textContent = 'Пока нет ни одной закрытой сотни';
+            }
+
+            // Рендеринг активной сотни в процессе
+            const activeCardEl = document.getElementById('achievements-active-card');
+            if (activeCardEl) {
+                const currentProgressCount = totalSuccesses % 100;
+                const nextHundredIndex = completedHundredsCount + 1;
+                const remainingSuccesses = 100 - currentProgressCount;
+                const progressPercent = currentProgressCount; // 0..99%
+
+                if (totalSuccesses === 0) {
+                    activeCardEl.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <div class="p-3 bg-primary-100 text-primary-600 rounded-xl">
+                                <i data-lucide="target" class="w-6 h-6"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-900">1-я сотня успехов (в процессе)</h4>
+                                <p class="text-xs text-slate-500 font-medium">Пока нет зарегистрированных успехов в истории</p>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    const currentChunkSuccesses = successItems.slice(completedHundredsCount * 100);
+                    const firstDateInCurrentChunk = currentChunkSuccesses[0].date;
+                    const latestDate = chronData[chronData.length - 1].date;
+                    const daysSoFar = Math.round((latestDate - firstDateInCurrentChunk) / (1000 * 60 * 60 * 24)) + 1;
+
+                    activeCardEl.innerHTML = `
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-primary-600 text-white uppercase tracking-wider">В процессе</span>
+                                    <h4 class="text-sm font-extrabold text-slate-900">${nextHundredIndex}-я сотня успехов (${completedHundredsCount * 100 + 1}–${nextHundredIndex * 100})</h4>
+                                </div>
+                                <p class="text-xs text-slate-600 font-medium">
+                                    Накоплено <span class="font-bold text-primary-700">${currentProgressCount} из 100 успехов</span> 
+                                    (осталось <span class="font-bold text-primary-700">${remainingSuccesses} ${getNounSuccesses(remainingSuccesses)}</span>)
+                                </p>
+                            </div>
+                            <div class="text-left sm:text-right">
+                                <span class="text-lg font-extrabold text-primary-600 font-mono">${daysSoFar} ${getNounDays(daysSoFar)}</span>
+                                <span class="text-[10px] text-slate-400 block font-medium">длится эта сотня (с ${formatDateToString(firstDateInCurrentChunk)})</span>
+                            </div>
+                        </div>
+
+                        <!-- Progress bar -->
+                        <div class="space-y-1">
+                            <div class="w-full bg-slate-200/80 rounded-full h-3 overflow-hidden">
+                                <div class="bg-gradient-to-r from-primary-500 to-indigo-600 h-3 rounded-full transition-all duration-500" style="width: ${progressPercent}%"></div>
+                            </div>
+                            <div class="flex justify-between items-center text-[10px] text-slate-400 font-medium">
+                                <span>${completedHundredsCount * 100} успехов</span>
+                                <span>${progressPercent}% заполнено</span>
+                                <span>${nextHundredIndex * 100} успехов</span>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            // Рендеринг списка закрытых сотен
+            const hundredsListContainer = document.getElementById('achievements-hundreds-list');
+            if (hundredsListContainer) {
+                hundredsListContainer.innerHTML = '';
+
+                if (hundredsList.length === 0) {
+                    hundredsListContainer.innerHTML = `
+                        <div class="text-center py-10 bg-slate-50 border border-slate-150 rounded-xl text-slate-400 text-xs font-medium">
+                            Пока не достигнуто 100 успехов. Ваша первая сотня появится здесь после достижения 100 успехов!
+                        </div>
+                    `;
+                } else {
+                    const reversedHundreds = [...hundredsList].reverse();
+
+                    reversedHundreds.forEach(h => {
+                        const isFastest = fastestHundred && h.index === fastestHundred.index;
+                        const prevHundred = hundredsList.find(prev => prev.index === h.index - 1);
+
+                        let diffBadgeHtml = '';
+                        if (prevHundred) {
+                            const daysDiff = prevHundred.calendarDays - h.calendarDays;
+                            if (daysDiff > 0) {
+                                diffBadgeHtml = `
+                                    <span class="inline-flex items-center gap-1 font-bold text-xs font-mono text-emerald-600 bg-emerald-100/70 px-2.5 py-1 rounded-lg">
+                                        ⚡ На ${daysDiff} ${getNounDays(daysDiff)} быстрее пред. сотни
+                                    </span>`;
+                            } else if (daysDiff < 0) {
+                                const absDiff = Math.abs(daysDiff);
+                                diffBadgeHtml = `
+                                    <span class="inline-flex items-center gap-1 font-bold text-xs font-mono text-rose-600 bg-rose-100/70 px-2.5 py-1 rounded-lg">
+                                        🐢 На ${absDiff} ${getNounDays(absDiff)} дольше пред. сотни
+                                    </span>`;
+                            } else {
+                                diffBadgeHtml = `
+                                    <span class="inline-flex items-center gap-1 font-bold text-xs font-mono text-slate-500 bg-slate-100/70 px-2.5 py-1 rounded-lg select-none">
+                                        Столько же дней, как в прошлый раз
+                                    </span>`;
+                            }
+                        } else {
+                            diffBadgeHtml = `
+                                <span class="inline-flex items-center gap-1 font-bold text-xs text-primary-700 bg-primary-100/70 px-2.5 py-1 rounded-lg select-none">
+                                    1-я сотня истории
+                                </span>`;
+                        }
+
+                        const borderClass = isFastest 
+                            ? 'border-amber-300 bg-amber-50/30 shadow-sm' 
+                            : 'border-slate-100 bg-white';
+
+                        const cardHtml = `
+                            <div class="p-4 rounded-xl border ${borderClass} transition hover:shadow-md space-y-2">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div class="space-y-1">
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-extrabold text-slate-900 text-sm">${h.index}-я сотня успехов (${h.startSuccessNum}–${h.endSuccessNum})</span>
+                                            ${isFastest ? '<span class="text-[10px] bg-amber-500 text-white font-extrabold px-2 py-0.5 rounded-full shadow-sm">⚡ Рекорд скорости</span>' : ''}
+                                        </div>
+                                        <p class="text-xs text-slate-500 font-medium">
+                                            Период: <span class="font-bold text-slate-700">${formatDateToString(h.startDate)} — ${formatDateToString(h.endDate)}</span>
+                                        </p>
+                                    </div>
+
+                                    <div class="flex items-center justify-between sm:justify-end gap-4">
+                                        <div class="text-left sm:text-right">
+                                            <span class="text-base font-extrabold text-slate-900 font-mono block">${h.calendarDays} ${getNounDays(h.calendarDays)}</span>
+                                            <span class="text-[10px] text-slate-400 font-medium">ушло на 100 успехов</span>
+                                        </div>
+                                        <div>
+                                            ${diffBadgeHtml}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                                    <span>Календарный период: <strong class="text-slate-800 font-mono">${h.calendarDays} ${getNounDays(h.calendarDays)}</strong></span>
+                                    <span>Доля успехов за период: <strong class="text-primary-600 font-mono">${(h.successRate * 100).toFixed(2)}%</strong></span>
+                                </div>
+                            </div>
+                        `;
+
+                        hundredsListContainer.insertAdjacentHTML('beforeend', cardHtml);
+                    });
+                }
+            }
+
+            if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+        }
+
         function renderTrendsChart() {
             const filteredData = getFilteredData();
             if (filteredData.length === 0) return;
-
-            const canvas = document.getElementById('trendsChart');
-            if (!canvas) return;
-
-            // Проверяем, отфильтровано ли начало истории (есть ли данные до начала выбранного периода)
-            const chronAll = [...habitsData].sort((a, b) => a.date - b.date);
-            const chronFiltered = [...filteredData].sort((a, b) => a.date - b.date);
-
-            const hasPriorHistory = chronAll.length > 0 && chronFiltered.length > 0 && chronFiltered[0].date > chronAll[0].date;
-            
-            const fromStartContainer = document.getElementById('chart-from-start-container');
-            if (fromStartContainer) {
-                if (hasPriorHistory) {
-                    fromStartContainer.classList.remove('hidden');
-                } else {
-                    fromStartContainer.classList.add('hidden');
-                }
-            }
-
-            const fromStartCheckbox = document.getElementById('chartFromStartCheckbox');
-            const useFromStart = hasPriorHistory && fromStartCheckbox && fromStartCheckbox.checked;
-
-            let priorSuccessDays = 0;
-            let priorTotalDays = 0;
-
-            if (useFromStart) {
-                const firstFilteredDate = chronFiltered[0].date;
-                const priorItems = chronAll.filter(item => item.date < firstFilteredDate);
-                priorTotalDays = priorItems.length;
-                priorSuccessDays = priorItems.filter(item => item.status === 'Успех').length;
-            }
-
-            const groupedList = getGroupedData(filteredData, chartGroupingMode);
-
-            const labels = groupedList.map(item => {
-                if (chartGroupingMode === 'day') {
-                    return formatDateToString(item.date);
-                } else {
-                    return item.label;
-                }
-            });
-
-            let runningSuccesses = priorSuccessDays;
-            let runningTotalDays = priorTotalDays;
-
-            const successRates = groupedList.map(item => {
-                runningTotalDays += item.totalDays;
-                runningSuccesses += item.successDays;
-                const rate = runningTotalDays > 0 ? (runningSuccesses * 100 / runningTotalDays) : 0;
-                return rate.toFixed(2);
-            });
-
-            const maxVal = Math.max(...successRates.map(Number));
-            
-            const displayTotalDays = useFromStart ? (priorTotalDays + filteredData.length) : filteredData.length;
-            const displaySuccessDaysCount = useFromStart ? (priorSuccessDays + filteredData.filter(item => item.status === 'Успех').length) : filteredData.filter(item => item.status === 'Успех').length;
-            const overallSuccessPercentage = displayTotalDays > 0 ? (displaySuccessDaysCount * 100 / displayTotalDays) : 0;
-
-            const maxEl = document.getElementById('chart-stat-max');
-            const avgEl = document.getElementById('chart-stat-avg');
-            const successDaysEl = document.getElementById('chart-stat-success-days');
-
-            if (maxEl) maxEl.textContent = maxVal.toFixed(2) + '%';
-            if (avgEl) avgEl.textContent = overallSuccessPercentage.toFixed(2) + '%';
-            if (successDaysEl) successDaysEl.textContent = displaySuccessDaysCount;
-
-            const datasetLabel = useFromStart 
-                ? 'Общий процент успеха (накопительно с 1-го дня истории)' 
-                : 'Общий процент успеха (%) с начала периода';
-
-            if (trendChartInstance) {
-                trendChartInstance.destroy();
-            }
-
-            const gridColor = 'rgba(226, 232, 240, 0.8)';
-            const textColor = '#64748b';
-
-            trendChartInstance = new Chart(canvas, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: datasetLabel,
-                            data: successRates,
-                            borderColor: '#8b5cf6',
-                            backgroundColor: 'rgba(139, 92, 246, 0.08)',
-                            borderWidth: 3,
-                            fill: true,
-                            tension: 0.35,
-                            pointBackgroundColor: '#8b5cf6',
-                            pointHoverRadius: 6,
-                            pointRadius: chartGroupingMode === 'day' && labels.length > 40 ? 0 : 3
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: {
-                        mode: 'index',
-                        intersect: false
-                    },
-                    plugins: {
-                        legend: {
-                            labels: {
-                                color: textColor,
-                                font: {
-                                    family: 'Inter',
-                                    size: 11,
-                                    weight: 'bold'
-                                }
-                            }
-                        },
-                        tooltip: {
-                            backgroundColor: '#ffffff',
-                            titleColor: '#0f172a',
-                            bodyColor: '#334155',
-                            borderColor: '#e2e8f0',
-                            borderWidth: 1,
-                            callbacks: {
-                                label: function(context) {
-                                    return ` ${context.dataset.label}: ${context.raw}%`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            grid: {
-                                color: gridColor
-                            },
-                            ticks: {
-                                color: textColor,
-                                font: {
-                                    family: 'Inter',
-                                    size: 10
-                                }
-                            }
-                        },
-                        y: {
-                            min: 0,
-                            max: 100,
-                            grid: {
-                                color: gridColor
-                            },
-                            ticks: {
-                                color: textColor,
-                                callback: function(value) {
-                                    return value + '%';
-                                },
-                                font: {
-                                    family: 'Inter',
-                                    size: 10
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        window.onload = function() {
-            if (typeof lucide !== 'undefined' && lucide.createIcons) {
-                lucide.createIcons();
-            }
-            
-            const dropzone = document.getElementById('dropzone');
-            const fileInput = document.getElementById('excelFile');
-            const emptyFileInput = document.getElementById('emptyStateFile');
-            
-            if (fileInput) {
-                fileInput.addEventListener('change', handleFileSelect, false);
-            }
-
-            if (emptyFileInput) {
-                emptyFileInput.addEventListener('change', handleFileSelect, false);
-            }
-
-            const emptyStateEl = document.getElementById('empty-state');
-            if (emptyStateEl) {
-                ['dragenter', 'dragover'].forEach(eventName => {
-                    emptyStateEl.addEventListener(eventName, (e) => {
-                        e.preventDefault();
-                        emptyStateEl.classList.add('border-primary-500', 'bg-primary-50/40');
-                    }, false);
-                });
-
-                ['dragleave', 'drop'].forEach(eventName => {
-                    emptyStateEl.addEventListener(eventName, (e) => {
-                        e.preventDefault();
-                        emptyStateEl.classList.remove('border-primary-500', 'bg-primary-50/40');
-                    }, false);
-                });
-            }
-
-            if (dropzone) {
-                ['dragenter', 'dragover'].forEach(eventName => {
-                    dropzone.addEventListener(eventName, (e) => {
-                        e.preventDefault();
-                        dropzone.classList.add('border-primary-500', 'bg-primary-50/50');
-                    }, false);
-                });
-
-                ['dragleave', 'drop'].forEach(eventName => {
-                    dropzone.addEventListener(eventName, (e) => {
-                        e.preventDefault();
-                        dropzone.classList.remove('border-primary-500', 'bg-primary-50/50');
-                    }, false);
-                });
-
-                dropzone.addEventListener('drop', (e) => {
-                    const dt = e.dataTransfer;
-                    const files = dt ? dt.files : null;
-                    if (files && files.length) {
-                        if (fileInput) fileInput.files = files;
-                        handleFileSelect({ target: { files: files } });
-                    }
-                }, false);
-            }
-
-            window.addEventListener('dragover', (e) => { e.preventDefault(); }, false);
-            window.addEventListener('drop', (e) => {
-                e.preventDefault();
-                const dt = e.dataTransfer;
-                const files = dt ? dt.files : null;
-                if (files && files.length) {
-                    handleFileSelect({ target: { files: files } });
-                }
-            }, false);
-        }
-    </script>
-</body>
-</html>
