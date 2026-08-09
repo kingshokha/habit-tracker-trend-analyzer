@@ -1324,10 +1324,12 @@
             modes.forEach(m => {
                 const btn = document.getElementById(`chart-group-${m}-btn`);
                 if (btn) {
+                    const isHidden = (m === 'day' && chartSubTab === 'count');
+                    const hiddenClass = isHidden ? ' hidden' : '';
                     if (m === chartGroupingMode) {
-                        btn.className = "flex-1 sm:flex-initial px-3 py-1.5 text-xs font-bold rounded-lg bg-white shadow-sm text-primary-600 transition-all";
+                        btn.className = "flex-1 sm:flex-initial px-3 py-1.5 text-xs font-bold rounded-lg bg-white shadow-sm text-primary-600 transition-all" + hiddenClass;
                     } else {
-                        btn.className = "flex-1 sm:flex-initial px-3 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:text-slate-700 transition-all";
+                        btn.className = "flex-1 sm:flex-initial px-3 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:text-slate-700 transition-all" + hiddenClass;
                     }
                 }
             });
@@ -1343,23 +1345,20 @@
             chartSubTab = mode;
             const percentBtn = document.getElementById('chart-subtab-percent-btn');
             const countBtn = document.getElementById('chart-subtab-count-btn');
-            const dayGroupingBtn = document.getElementById('chart-group-day-btn');
             
             if (mode === 'percent') {
                 if (percentBtn) percentBtn.className = "px-3.5 py-1.5 text-xs font-bold rounded-xl bg-primary-600 text-white shadow-sm transition flex items-center gap-1.5";
                 if (countBtn) countBtn.className = "px-3.5 py-1.5 text-xs font-medium rounded-xl text-slate-600 hover:bg-slate-100 transition flex items-center gap-1.5";
-                if (dayGroupingBtn) dayGroupingBtn.classList.remove('hidden');
             } else {
                 if (percentBtn) percentBtn.className = "px-3.5 py-1.5 text-xs font-medium rounded-xl text-slate-600 hover:bg-slate-100 transition flex items-center gap-1.5";
                 if (countBtn) countBtn.className = "px-3.5 py-1.5 text-xs font-bold rounded-xl bg-primary-600 text-white shadow-sm transition flex items-center gap-1.5";
-                if (dayGroupingBtn) dayGroupingBtn.classList.add('hidden');
 
                 if (chartGroupingMode === 'day') {
                     chartGroupingMode = 'week';
-                    updateChartGroupingButtons();
                 }
             }
 
+            updateChartGroupingButtons();
             renderTrendsChart();
         }
 
