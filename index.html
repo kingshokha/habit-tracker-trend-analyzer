@@ -1700,14 +1700,12 @@
             if (!listContainer) return;
             listContainer.innerHTML = '';
 
-            // Определяем реальные параметры текущего сегодняшнего месяца
-            const today = new Date();
-            const realCurrentMonth = today.getMonth();
-            const realCurrentDay = today.getDate();
-
+            // Определяем реальные параметры текущего месяца из всей истории habitsData
             const overallChron = [...habitsData].sort((a, b) => a.date - b.date);
-            const latestYear = overallChron.length > 0 ? overallChron[overallChron.length - 1].date.getFullYear() : today.getFullYear();
-            const realCurrentYear = latestYear;
+            const overallLatestItem = overallChron.length > 0 ? overallChron[overallChron.length - 1] : null;
+            const realCurrentDay = overallLatestItem ? overallLatestItem.date.getDate() : 31;
+            const realCurrentMonth = overallLatestItem ? overallLatestItem.date.getMonth() : 11;
+            const realCurrentYear = overallLatestItem ? overallLatestItem.date.getFullYear() : 2026;
 
             const targetDay = realCurrentDay;
 
@@ -1716,10 +1714,22 @@
 
             const chronData = [...filteredData].sort((a, b) => a.date - b.date);
 
-            // Группировка отфильтрованных данных по месяцам
+            const hasRealCurrent = chronData.some(item => 
+                item.date.getFullYear() === realCurrentYear && item.date.getMonth() === realCurrentMonth
+            );
+
+            let itemsToGroup = [...chronData];
+            if (!hasRealCurrent) {
+                const currentItemsFromAll = overallChron.filter(item => 
+                    item.date.getFullYear() === realCurrentYear && item.date.getMonth() === realCurrentMonth
+                );
+                itemsToGroup = [...itemsToGroup, ...currentItemsFromAll];
+            }
+
+            // Группировка данных по месяцам
             const monthsMap = new Map();
 
-            chronData.forEach(item => {
+            itemsToGroup.forEach(item => {
                 const y = item.date.getFullYear();
                 const m = item.date.getMonth();
                 const monthKey = `${y}-${String(m + 1).padStart(2, '0')}`;
@@ -1840,7 +1850,7 @@
             sortedMonths.forEach((mObj, index) => {
                 const monthName = new Date(mObj.year, mObj.month, 1).toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
                 const formattedName = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-                const isCurrent = mObj.month === realCurrentMonth;
+                const isCurrent = (mObj.year === realCurrentYear && mObj.month === realCurrentMonth);
 
                 const percentStr = (mObj.activeSuccessRate * 100).toFixed(2) + '%';
                 const successCount = mObj.activeSuccessDays;
