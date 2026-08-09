@@ -2539,22 +2539,21 @@
 
                         let diffBadgeHtml = '';
                         if (prevHundred) {
-                            const daysDiff = prevHundred.calendarDays - h.calendarDays;
-                            if (daysDiff > 0) {
+                            const daysDiff = h.calendarDays - prevHundred.calendarDays;
+                            if (daysDiff < 0) {
                                 diffBadgeHtml = `
                                     <span class="inline-flex items-center gap-1 font-bold text-xs font-mono text-emerald-600 bg-emerald-100/70 px-2.5 py-1 rounded-lg">
-                                        ⚡ На ${daysDiff} ${getNounDays(daysDiff)} быстрее пред. сотни
+                                        ${daysDiff} ${getNounDays(Math.abs(daysDiff))}
                                     </span>`;
-                            } else if (daysDiff < 0) {
-                                const absDiff = Math.abs(daysDiff);
+                            } else if (daysDiff > 0) {
                                 diffBadgeHtml = `
                                     <span class="inline-flex items-center gap-1 font-bold text-xs font-mono text-rose-600 bg-rose-100/70 px-2.5 py-1 rounded-lg">
-                                        🐢 На ${absDiff} ${getNounDays(absDiff)} дольше пред. сотни
+                                        +${daysDiff} ${getNounDays(daysDiff)}
                                     </span>`;
                             } else {
                                 diffBadgeHtml = `
                                     <span class="inline-flex items-center gap-1 font-bold text-xs font-mono text-slate-500 bg-slate-100/70 px-2.5 py-1 rounded-lg select-none">
-                                        Столько же дней, как в прошлый раз
+                                        0 дней
                                     </span>`;
                             }
                         } else {
@@ -2610,3 +2609,237 @@
         function renderTrendsChart() {
             const filteredData = getFilteredData();
             if (filteredData.length === 0) return;
+
+            const canvas = document.getElementById('trendsChart');
+            if (!canvas) return;
+
+            // Проверяем, отфильтровано ли начало истории (есть ли данные до начала выбранного периода)
+            const chronAll = [...habitsData].sort((a, b) => a.date - b.date);
+            const chronFiltered = [...filteredData].sort((a, b) => a.date - b.date);
+
+            const hasPriorHistory = chronAll.length > 0 && chronFiltered.length > 0 && chronFiltered[0].date > chronAll[0].date;
+            
+            const fromStartContainer = document.getElementById('chart-from-start-container');
+            if (fromStartContainer) {
+                if (hasPriorHistory) {
+                    fromStartContainer.classList.remove('hidden');
+                } else {
+                    fromStartContainer.classList.add('hidden');
+                }
+            }
+
+            const fromStartCheckbox = document.getElementById('chartFromStartCheckbox');
+            const useFromStart = hasPriorHistory && fromStartCheckbox && fromStartCheckbox.checked;
+
+            let priorSuccessDays = 0;
+            let priorTotalDays = 0;
+
+            if (useFromStart) {
+                const firstFilteredDate = chronFiltered[0].date;
+                const priorItems = chronAll.filter(item => item.date < firstFilteredDate);
+                priorTotalDays = priorItems.length;
+                priorSuccessDays = priorItems.filter(item => item.status === 'Успех').length;
+            }
+
+            const groupedList = getGroupedData(filteredData, chartGroupingMode);
+
+            const labels = groupedList.map(item => {
+                if (chartGroupingMode === 'day') {
+                    return formatDateToString(item.date);
+                } else {
+                    return item.label;
+                }
+            });
+
+            let runningSuccesses = priorSuccessDays;
+            let runningTotalDays = priorTotalDays;
+
+            const successRates = groupedList.map(item => {
+                runningTotalDays += item.totalDays;
+                runningSuccesses += item.successDays;
+                const rate = runningTotalDays > 0 ? (runningSuccesses * 100 / runningTotalDays) : 0;
+                return rate.toFixed(2);
+            });
+
+            const maxVal = Math.max(...successRates.map(Number));
+            
+            const displayTotalDays = useFromStart ? (priorTotalDays + filteredData.length) : filteredData.length;
+            const displaySuccessDaysCount = useFromStart ? (priorSuccessDays + filteredData.filter(item => item.status === 'Успех').length) : filteredData.filter(item => item.status === 'Успех').length;
+            const overallSuccessPercentage = displayTotalDays > 0 ? (displaySuccessDaysCount * 100 / displayTotalDays) : 0;
+
+            const maxEl = document.getElementById('chart-stat-max');
+            const avgEl = document.getElementById('chart-stat-avg');
+            const successDaysEl = document.getElementById('chart-stat-success-days');
+
+            if (maxEl) maxEl.textContent = maxVal.toFixed(2) + '%';
+            if (avgEl) avgEl.textContent = overallSuccessPercentage.toFixed(2) + '%';
+            if (successDaysEl) successDaysEl.textContent = displaySuccessDaysCount;
+
+            const datasetLabel = useFromStart 
+                ? 'Общий процент успеха (накопительно с 1-го дня истории)' 
+                : 'Общий процент успеха (%) с начала периода';
+
+            if (trendChartInstance) {
+                trendChartInstance.destroy();
+            }
+
+            const gridColor = 'rgba(226, 232, 240, 0.8)';
+            const textColor = '#64748b';
+
+            trendChartInstance = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: datasetLabel,
+                            data: successRates,
+                            borderColor: '#8b5cf6',
+                            backgroundColor: 'rgba(139, 92, 246, 0.08)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.35,
+                            pointBackgroundColor: '#8b5cf6',
+                            pointHoverRadius: 6,
+                            pointRadius: chartGroupingMode === 'day' && labels.length > 40 ? 0 : 3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: textColor,
+                                font: {
+                                    family: 'Inter',
+                                    size: 11,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#ffffff',
+                            titleColor: '#0f172a',
+                            bodyColor: '#334155',
+                            borderColor: '#e2e8f0',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    return ` ${context.dataset.label}: ${context.raw}%`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: gridColor
+                            },
+                            ticks: {
+                                color: textColor,
+                                font: {
+                                    family: 'Inter',
+                                    size: 10
+                                }
+                            }
+                        },
+                        y: {
+                            min: 0,
+                            max: 100,
+                            grid: {
+                                color: gridColor
+                            },
+                            ticks: {
+                                color: textColor,
+                                callback: function(value) {
+                                    return value + '%';
+                                },
+                                font: {
+                                    family: 'Inter',
+                                    size: 10
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        window.onload = function() {
+            if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                lucide.createIcons();
+            }
+            
+            const dropzone = document.getElementById('dropzone');
+            const fileInput = document.getElementById('excelFile');
+            const emptyFileInput = document.getElementById('emptyStateFile');
+            
+            if (fileInput) {
+                fileInput.addEventListener('change', handleFileSelect, false);
+            }
+
+            if (emptyFileInput) {
+                emptyFileInput.addEventListener('change', handleFileSelect, false);
+            }
+
+            const emptyStateEl = document.getElementById('empty-state');
+            if (emptyStateEl) {
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    emptyStateEl.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        emptyStateEl.classList.add('border-primary-500', 'bg-primary-50/40');
+                    }, false);
+                });
+
+                ['dragleave', 'drop'].forEach(eventName => {
+                    emptyStateEl.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        emptyStateEl.classList.remove('border-primary-500', 'bg-primary-50/40');
+                    }, false);
+                });
+            }
+
+            if (dropzone) {
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    dropzone.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        dropzone.classList.add('border-primary-500', 'bg-primary-50/50');
+                    }, false);
+                });
+
+                ['dragleave', 'drop'].forEach(eventName => {
+                    dropzone.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        dropzone.classList.remove('border-primary-500', 'bg-primary-50/50');
+                    }, false);
+                });
+
+                dropzone.addEventListener('drop', (e) => {
+                    const dt = e.dataTransfer;
+                    const files = dt ? dt.files : null;
+                    if (files && files.length) {
+                        if (fileInput) fileInput.files = files;
+                        handleFileSelect({ target: { files: files } });
+                    }
+                }, false);
+            }
+
+            window.addEventListener('dragover', (e) => { e.preventDefault(); }, false);
+            window.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const dt = e.dataTransfer;
+                const files = dt ? dt.files : null;
+                if (files && files.length) {
+                    handleFileSelect({ target: { files: files } });
+                }
+            }, false);
+        }
+    </script>
+</body>
+</html>
