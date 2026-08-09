@@ -2654,13 +2654,19 @@
                     }
                 });
 
-                const successfulMonthHistory = successfulMonths.map(sm => ({
-                    title: `${sm.monthObj.label} • ${sm.monthObj.successDays} ${getNounSuccesses(sm.monthObj.successDays)}`,
-                    subtext: `Период: ${formatDateToString(sm.monthObj.startDate)} — ${formatDateToString(sm.monthObj.endDate)}`,
-                    valueText: `+${(sm.monthObj.successDays - sm.priorAvg).toFixed(1)} усп.`,
-                    valueColorClass: 'text-emerald-600 font-bold',
-                    badgeText: `Среднее 12 мес.: ${sm.priorAvg.toFixed(1)} усп.`
-                })).reverse();
+                const successfulMonthHistory = successfulMonths.map(sm => {
+                    const firstDate = (sm.monthObj.items && sm.monthObj.items.length > 0) ? sm.monthObj.items[0].date : null;
+                    const lastDate = (sm.monthObj.items && sm.monthObj.items.length > 0) ? sm.monthObj.items[sm.monthObj.items.length - 1].date : null;
+                    const datePeriodText = (firstDate && lastDate) ? `${formatDateToString(firstDate)} — ${formatDateToString(lastDate)}` : sm.monthObj.label;
+                    
+                    return {
+                        title: `${sm.monthObj.label} • ${sm.monthObj.successDays} ${getNounSuccesses(sm.monthObj.successDays)}`,
+                        subtext: `Период: ${datePeriodText}`,
+                        valueText: `+${(sm.monthObj.successDays - sm.priorAvg).toFixed(1)} усп.`,
+                        valueColorClass: 'text-emerald-600 font-bold',
+                        badgeText: `Среднее 12 мес.: ${sm.priorAvg.toFixed(1)} усп.`
+                    };
+                }).reverse();
 
                 // 6. Клуб успехов (100, 300, 500, 800, 1000, 1200 успехов)
                 const clubMilestones = [100, 300, 500, 800, 1000, 1200];
