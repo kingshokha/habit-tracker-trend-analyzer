@@ -73,6 +73,7 @@
                     </div>
                     
                     <div class="flex items-center space-x-2">
+                        <span class="px-2.5 py-1 bg-slate-100 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-500 font-mono select-none" title="Версия сайта">v1.1.0</span>
                         <button id="header-import-btn" onclick="openImportModal()" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 hover:bg-primary-100 text-primary-700 text-xs font-semibold rounded-lg transition" title="Загрузить другой файл">
                             <i data-lucide="upload-cloud" class="w-4 h-4"></i>
                             <span>Импортировать файл</span>
@@ -146,22 +147,6 @@
                                 <button onclick="setGroupingMode('month')" id="group-month-btn" class="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:text-slate-700 transition-all">По месяцам</button>
                                 <button onclick="setGroupingMode('quarter')" id="group-quarter-btn" class="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:text-slate-700 transition-all">По кварталам</button>
                                 <button onclick="setGroupingMode('year')" id="group-year-btn" class="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:text-slate-700 transition-all">По годам</button>
-                            </div>
-                        </div>
-
-                        <div id="sort-selector-container" class="relative">
-                            <select id="sortSelector" onchange="onSortChange(this.value)" class="w-full sm:w-auto bg-white border border-slate-200 rounded-xl py-1.5 px-3 text-xs font-semibold focus:ring-1 focus:ring-primary-500 outline-none text-slate-800 cursor-pointer appearance-none pr-8 shadow-sm">
-                                <option value="date-desc">Сначала новые</option>
-                                <option value="date-asc">Сначала старые</option>
-                                <option value="val-desc">Проценты: по убыванию</option>
-                                <option value="val-asc">Проценты: по возрастанию</option>
-                                <option value="succ-days-desc">Количество успехов: по убыванию</option>
-                                <option value="succ-days-asc">Количество успехов: по возрастанию</option>
-                                <option value="succ-diff-desc">Динамика успехов: от лучших</option>
-                                <option value="succ-diff-asc">Динамика успехов: от худших</option>
-                            </select>
-                            <div class="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none text-slate-400">
-                                <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
                             </div>
                         </div>
                     </div>
@@ -1991,7 +1976,6 @@
                                 </div>
                                 <p class="text-xs text-slate-500 font-medium">
                                     Успехов: <span class="font-bold text-slate-800">${successCount}</span> из <span class="font-bold text-slate-800">${totalCount}</span> ${getNounDays(totalCount)}
-                                    ${monthCompFilterMode === 'mtd' ? ` <span class="text-[10px] text-slate-400">(до ${targetDay}-го числа)</span>` : ''}
                                 </p>
                             </div>
 
