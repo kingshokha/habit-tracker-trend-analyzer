@@ -73,7 +73,7 @@
                     </div>
                     
                     <div class="flex items-center space-x-2">
-                        <span class="px-2.5 py-1 bg-slate-100 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-500 font-mono select-none" title="Версия сайта">v1.3.0</span>
+                        <span class="px-2.5 py-1 bg-slate-100 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-500 font-mono select-none" title="Версия сайта">v1.4.0</span>
                         <button id="header-import-btn" onclick="openImportModal()" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 hover:bg-primary-100 text-primary-700 text-xs font-semibold rounded-lg transition" title="Загрузить другой файл">
                             <i data-lucide="upload-cloud" class="w-4 h-4"></i>
                             <span>Импортировать файл</span>
@@ -160,23 +160,11 @@
                                     </span>
                                     <div>
                                         <h4 class="text-sm font-bold text-slate-900">Средний успех за полгода</h4>
-                                        <span class="text-[10px] text-slate-400 font-medium">Количество успехов за последние 6 месяцев</span>
                                     </div>
                                 </div>
                                 <div class="text-left sm:text-right flex flex-col sm:items-end">
                                     <span id="overview-halfyear-count" class="text-xl font-extrabold text-primary-600 font-mono">0.0 успехов/мес</span>
                                     <span id="overview-halfyear-comparison" class="text-[11px] font-bold mt-0.5"></span>
-                                </div>
-                            </div>
-
-                            <div class="pt-2.5 border-t border-slate-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                                <div class="flex items-center gap-1.5">
-                                    <span class="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Текущее полугодие:</span>
-                                    <span id="overview-current-halfyear-details" class="font-bold text-slate-800">0 успехов из 0 дней (0.00%)</span>
-                                </div>
-                                <div class="flex items-center gap-1.5">
-                                    <span class="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Прошлое полугодие:</span>
-                                    <span id="overview-prev-halfyear-details" class="font-medium text-slate-600">0 успехов из 0 дней (0.00%)</span>
                                 </div>
                             </div>
                         </div>
@@ -1541,13 +1529,13 @@
 
                     if (diffSuccessesTotal > 0) {
                         halfyearComparisonEl.className = "text-[11px] font-extrabold text-emerald-600 mt-0.5";
-                        halfyearComparisonEl.innerHTML = `<span class="inline-block transform scale-90">▲</span> ${diffSign}${diffSuccessesTotal} ${getNounSuccesses(Math.abs(diffSuccessesTotal))} (${diffSign}${diffMonthly.toFixed(1)}/мес к прошлым 6 мес)`;
+                        halfyearComparisonEl.innerHTML = `<span class="inline-block transform scale-90">▲</span> ${diffSign}${diffSuccessesTotal} ${getNounSuccesses(Math.abs(diffSuccessesTotal))} (${diffSign}${diffMonthly.toFixed(1)}/мес)`;
                     } else if (diffSuccessesTotal < 0) {
                         halfyearComparisonEl.className = "text-[11px] font-extrabold text-rose-600 mt-0.5";
-                        halfyearComparisonEl.innerHTML = `<span class="inline-block transform scale-90">▼</span> ${diffSuccessesTotal} ${getNounSuccesses(Math.abs(diffSuccessesTotal))} (${diffMonthly.toFixed(1)}/мес к прошлым 6 мес)`;
+                        halfyearComparisonEl.innerHTML = `<span class="inline-block transform scale-90">▼</span> ${diffSuccessesTotal} ${getNounSuccesses(Math.abs(diffSuccessesTotal))} (${diffMonthly.toFixed(1)}/мес)`;
                     } else {
                         halfyearComparisonEl.className = "text-[11px] font-extrabold text-slate-400 mt-0.5 select-none";
-                        halfyearComparisonEl.textContent = `0 (равно с прошлыми 6 мес)`;
+                        halfyearComparisonEl.textContent = `0 (равно с прошлым полугодием)`;
                     }
                 }
             }
