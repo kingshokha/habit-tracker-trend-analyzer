@@ -73,7 +73,7 @@
                     </div>
                     
                     <div class="flex items-center space-x-2">
-                        <span class="px-2.5 py-1 bg-slate-100 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-500 font-mono select-none" title="Версия сайта">v1.1.0</span>
+                        <span class="px-2.5 py-1 bg-slate-100 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-500 font-mono select-none" title="Версия сайта">v1.2.0</span>
                         <button id="header-import-btn" onclick="openImportModal()" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 hover:bg-primary-100 text-primary-700 text-xs font-semibold rounded-lg transition" title="Загрузить другой файл">
                             <i data-lucide="upload-cloud" class="w-4 h-4"></i>
                             <span>Импортировать файл</span>
@@ -159,7 +159,8 @@
                                         <i data-lucide="target" class="w-4.5 h-4.5"></i>
                                     </span>
                                     <div>
-                                        <h4 class="text-sm font-bold text-slate-900">Средний успех за всё время</h4>
+                                        <h4 class="text-sm font-bold text-slate-900">Средний успех за полгода</h4>
+                                        <span class="text-[10px] text-slate-400 font-medium">За последние 6 месяцев</span>
                                     </div>
                                 </div>
                                 <div class="text-right flex flex-col items-end">
@@ -167,14 +168,16 @@
                                     <span id="overview-last30-change" class="text-[11px] font-bold mt-0.5"></span>
                                 </div>
                             </div>
-                            
-                            <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
-                                <div id="overview-overall-bar" class="bg-primary-600 h-3 transition-all duration-500 rounded-full" style="width: 0%"></div>
-                            </div>
 
-                            <div class="flex justify-between items-center text-[10px] text-slate-400">
-                                <span id="overview-overall-count" class="font-bold">0 успехов из 0 дней</span>
-                                <span class="font-mono text-[9px]">(Успехи * 100 : дни)</span>
+                            <div class="pt-2.5 border-t border-slate-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Всего за полгода:</span>
+                                    <span id="overview-overall-count" class="font-bold text-slate-800">0 успехов из 0 дней</span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-slate-400 text-[10px] uppercase font-bold tracking-wider">В среднем за месяц:</span>
+                                    <span id="overview-avg-monthly-count" class="font-extrabold text-emerald-600 font-mono">0.0 успехов/мес</span>
+                                </div>
                             </div>
                         </div>
 
@@ -1075,17 +1078,12 @@
                 const year = d.getFullYear();
 
                 if (mode === 'week') {
-                    const target = new Date(d.valueOf());
-                    const dayNr = (d.getDay() + 6) % 7;
-                    target.setDate(target.getDate() - dayNr + 3);
-                    const firstThursday = target.valueOf();
-                    target.setMonth(0, 1);
-                    if (target.getDay() !== 4) {
-                        target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
-                    }
-                    const weekNum = 1 + Math.ceil((firstThursday - target) / 604800000);
-                    key = `${year}-W${String(weekNum).padStart(2, '0')}`;
-                    label = `Неделя ${weekNum} (${year})`;
+                    const dayOfWeek = (d.getDay() + 6) % 7;
+                    const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - dayOfWeek);
+                    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+                    const monStr = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+                    key = `week-${monStr}`;
+                    label = `${formatDateToString(monday)} — ${formatDateToString(sunday)}`;
                 } else if (mode === 'month') {
                     const month = d.getMonth() + 1;
                     key = `${year}-${String(month).padStart(2, '0')}`;
@@ -1494,26 +1492,34 @@
             const targetYear = latestDate.getFullYear();
             const minDate = chronData[0].date;
 
-            const totalDaysAllTime = habitsData.length;
-            const totalSuccessesAllTime = habitsData.filter(item => item.status === 'Успех').length;
-            const overallPercentage = totalDaysAllTime > 0 ? (totalSuccessesAllTime * 100 / totalDaysAllTime) : 0;
+            // Расчет данных за последние полгода (6 месяцев / 182 дня)
+            const msInDay = 24 * 60 * 60 * 1000;
+            const halfYearMs = 182.625 * msInDay;
+            const halfYearStartTime = latestDate.getTime() - halfYearMs;
+
+            const halfYearItems = chronData.filter(item => item.date.getTime() >= halfYearStartTime);
+            const totalDaysHalfYear = halfYearItems.length;
+            const totalSuccessesHalfYear = halfYearItems.filter(item => item.status === 'Успех').length;
+            const halfYearPercentage = totalDaysHalfYear > 0 ? (totalSuccessesHalfYear * 100 / totalDaysHalfYear) : 0;
+
+            const approxMonths = totalDaysHalfYear > 0 ? (totalDaysHalfYear / 30.4375) : 6;
+            const avgMonthlySuccesses = approxMonths > 0 ? (totalSuccessesHalfYear / approxMonths) : 0;
 
             const overallPercentEl = document.getElementById('overview-overall-percent');
-            const overallBarEl = document.getElementById('overview-overall-bar');
             const overallCountEl = document.getElementById('overview-overall-count');
+            const avgMonthlyCountEl = document.getElementById('overview-avg-monthly-count');
 
-            if (overallPercentEl) overallPercentEl.textContent = overallPercentage.toFixed(2) + '%';
-            if (overallBarEl) overallBarEl.style.width = overallPercentage.toFixed(2) + '%';
-            if (overallCountEl) overallCountEl.textContent = `${totalSuccessesAllTime} ${getNounSuccesses(totalSuccessesAllTime)} из ${totalDaysAllTime} ${getNounDays(totalDaysAllTime)} в истории`;
+            if (overallPercentEl) overallPercentEl.textContent = halfYearPercentage.toFixed(2) + '%';
+            if (overallCountEl) overallCountEl.textContent = `${totalSuccessesHalfYear} ${getNounSuccesses(totalSuccessesHalfYear)} из ${totalDaysHalfYear} ${getNounDays(totalDaysHalfYear)}`;
+            if (avgMonthlyCountEl) avgMonthlyCountEl.textContent = `${avgMonthlySuccesses.toFixed(1)} ${getNounSuccesses(Math.round(avgMonthlySuccesses))}/мес`;
 
-            // Динамика за 30 дней
-            const msInDay = 24 * 60 * 60 * 1000;
-            const latestTime = latestDate.getTime();
-            const thirtyDaysAgoTime = latestTime - 30 * msInDay;
+            // Динамика за 30 дней (сравнение 6-месячного окна сейчас vs 6-месячного окна 30 дней назад)
+            const thirtyDaysAgoTime = latestDate.getTime() - 30 * msInDay;
+            const halfYearStartTime30dAgo = thirtyDaysAgoTime - halfYearMs;
 
-            const itemsUpTo30DaysAgo = chronData.filter(item => item.date.getTime() <= thirtyDaysAgoTime);
-            const totalDays30DaysAgo = itemsUpTo30DaysAgo.length;
-            const totalSuccesses30DaysAgo = itemsUpTo30DaysAgo.filter(item => item.status === 'Успех').length;
+            const itemsInHalfYear30dAgo = chronData.filter(item => item.date.getTime() <= thirtyDaysAgoTime && item.date.getTime() >= halfYearStartTime30dAgo);
+            const totalDays30DaysAgo = itemsInHalfYear30dAgo.length;
+            const totalSuccesses30DaysAgo = itemsInHalfYear30dAgo.filter(item => item.status === 'Успех').length;
 
             const change30El = document.getElementById('overview-last30-change');
             if (change30El) {
@@ -1522,7 +1528,7 @@
                     change30El.textContent = "нет данных 30д назад";
                 } else {
                     const percentage30DaysAgo = (totalSuccesses30DaysAgo * 100 / totalDays30DaysAgo);
-                    const change30Percent = overallPercentage - percentage30DaysAgo;
+                    const change30Percent = halfYearPercentage - percentage30DaysAgo;
 
                     if (change30Percent > 0) {
                         change30El.className = "text-[11px] font-extrabold text-emerald-600 mt-0.5";
@@ -1971,7 +1977,6 @@
                             <div class="space-y-1">
                                 <div class="flex items-center gap-2">
                                     <span class="font-extrabold text-slate-900 text-sm">${formattedName}</span>
-                                    ${isCurrent ? '<span class="text-[9px] bg-primary-600 text-white font-bold px-2 py-0.5 rounded-full">Текущий</span>' : ''}
                                     ${rankBadge}
                                 </div>
                                 <p class="text-xs text-slate-500 font-medium">
